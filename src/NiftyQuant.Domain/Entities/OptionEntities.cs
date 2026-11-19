@@ -27,11 +27,13 @@ public class OptionChainSnapshot
     public decimal HighestCallOiStrike { get; set; }
     public decimal HighestPutOiStrike { get; set; }
     public string RawJson { get; set; } = string.Empty;
+    public List<OptionQuote> Quotes { get; set; } = new();
 }
 
 public class OptionQuote
 {
     public long Id { get; set; }
+    public long? SnapshotId { get; set; }
     public string InstrumentKey { get; set; } = string.Empty;
     public decimal StrikePrice { get; set; }
     public OptionType OptionType { get; set; }
@@ -42,10 +44,13 @@ public class OptionQuote
     public long Volume { get; set; }
     public decimal OpenInterest { get; set; }
     public decimal PreviousOpenInterest { get; set; }
+    public decimal IntradayOiChange { get; set; }
+    public decimal IntradayOiChangePercent { get; set; }
     public decimal? ImpliedVolatility { get; set; }
     public decimal? Delta { get; set; }
     public decimal? Gamma { get; set; }
     public decimal? Theta { get; set; }
     public decimal? Vega { get; set; }
     public DateTime SnapshotTimeUtc { get; set; }
+    public OptionChainSnapshot? Snapshot { get; set; }
 }

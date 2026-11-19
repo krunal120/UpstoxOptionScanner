@@ -14,6 +14,8 @@ public class NiftyQuantDbContext : DbContext
     public DbSet<OptionContract> OptionContracts => Set<OptionContract>();
     public DbSet<OptionQuote> OptionQuotes => Set<OptionQuote>();
     public DbSet<OptionChainSnapshot> OptionChainSnapshots => Set<OptionChainSnapshot>();
+    public DbSet<IndicatorSnapshot> IndicatorSnapshots => Set<IndicatorSnapshot>();
+    public DbSet<MarketRegimeRecord> MarketRegimes => Set<MarketRegimeRecord>();
     public DbSet<StrategySignal> StrategySignals => Set<StrategySignal>();
     public DbSet<SignalReason> SignalReasons => Set<SignalReason>();
     public DbSet<PaperAccount> PaperAccounts => Set<PaperAccount>();
@@ -72,6 +74,8 @@ public class NiftyQuantDbContext : DbContext
             entity.Property(e => e.AskPrice).HasPrecision(18, 4);
             entity.Property(e => e.OpenInterest).HasPrecision(18, 2);
             entity.Property(e => e.PreviousOpenInterest).HasPrecision(18, 2);
+            entity.Property(e => e.IntradayOiChange).HasPrecision(18, 2);
+            entity.Property(e => e.IntradayOiChangePercent).HasPrecision(18, 4);
             entity.Property(e => e.ImpliedVolatility).HasPrecision(18, 4);
             entity.Property(e => e.Delta).HasPrecision(18, 4);
             entity.Property(e => e.Gamma).HasPrecision(18, 6);
@@ -93,6 +97,47 @@ public class NiftyQuantDbContext : DbContext
             entity.Property(e => e.HighestCallOiStrike).HasPrecision(18, 2);
             entity.Property(e => e.HighestPutOiStrike).HasPrecision(18, 2);
             entity.HasIndex(e => new { e.UnderlyingKey, e.SnapshotTimeUtc });
+
+            entity.HasMany(e => e.Quotes)
+                  .WithOne(q => q.Snapshot)
+                  .HasForeignKey(q => q.SnapshotId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // IndicatorSnapshot Configuration
+        modelBuilder.Entity<IndicatorSnapshot>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.InstrumentKey).HasMaxLength(100);
+            entity.HasIndex(e => new { e.InstrumentKey, e.Timeframe, e.CandleTimeUtc }).IsUnique();
+            entity.Property(e => e.Ema9).HasPrecision(18, 4);
+            entity.Property(e => e.Ema21).HasPrecision(18, 4);
+            entity.Property(e => e.Ema50).HasPrecision(18, 4);
+            entity.Property(e => e.Ema200).HasPrecision(18, 4);
+            entity.Property(e => e.Vwap).HasPrecision(18, 4);
+            entity.Property(e => e.Supertrend).HasPrecision(18, 4);
+            entity.Property(e => e.Rsi14).HasPrecision(18, 4);
+            entity.Property(e => e.Macd).HasPrecision(18, 4);
+            entity.Property(e => e.MacdSignal).HasPrecision(18, 4);
+            entity.Property(e => e.MacdHistogram).HasPrecision(18, 4);
+            entity.Property(e => e.Adx14).HasPrecision(18, 4);
+            entity.Property(e => e.PlusDi).HasPrecision(18, 4);
+            entity.Property(e => e.MinusDi).HasPrecision(18, 4);
+            entity.Property(e => e.Atr14).HasPrecision(18, 4);
+            entity.Property(e => e.BollingerUpper).HasPrecision(18, 4);
+            entity.Property(e => e.BollingerMiddle).HasPrecision(18, 4);
+            entity.Property(e => e.BollingerLower).HasPrecision(18, 4);
+            entity.Property(e => e.RelativeVolume).HasPrecision(18, 4);
+        });
+
+        // MarketRegimeRecord Configuration
+        modelBuilder.Entity<MarketRegimeRecord>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.TimestampUtc);
+            entity.Property(e => e.Confidence).HasPrecision(18, 4);
+            entity.Property(e => e.AdxValue).HasPrecision(18, 4);
+            entity.Property(e => e.Description).HasMaxLength(300);
         });
 
         // StrategySignal Configuration

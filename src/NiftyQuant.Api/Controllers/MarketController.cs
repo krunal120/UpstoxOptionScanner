@@ -14,6 +14,8 @@ public class MarketController : ControllerBase
     private readonly IUpstoxClient _upstoxClient;
     private readonly IUpstoxWebSocketClient _webSocketClient;
     private readonly ISubscriptionManager _subscriptionManager;
+    private readonly ICandleAggregationEngine _candleEngine;
+    private readonly IOptionChainSnapshotEngine _snapshotEngine;
     private readonly NiftyQuantDbContext _dbContext;
     private readonly ILogger<MarketController> _logger;
 
@@ -21,14 +23,54 @@ public class MarketController : ControllerBase
         IUpstoxClient upstoxClient,
         IUpstoxWebSocketClient webSocketClient,
         ISubscriptionManager subscriptionManager,
+        ICandleAggregationEngine candleEngine,
+        IOptionChainSnapshotEngine snapshotEngine,
         NiftyQuantDbContext dbContext,
         ILogger<MarketController> logger)
     {
         _upstoxClient = upstoxClient;
         _webSocketClient = webSocketClient;
         _subscriptionManager = subscriptionManager;
+        _candleEngine = candleEngine;
+        _snapshotEngine = snapshotEngine;
         _dbContext = dbContext;
         _logger = logger;
+    }
+
+    [HttpGet("latest-snapshot")]
+    public async Task<IActionResult> GetLatestSnapshot([FromQuery] string underlyingKey = "NSE_INDEX|Nifty 50", CancellationToken ct = default)
+    {
+        var snapshot = await _snapshotEngine.GetLatestSnapshotAsync(underlyingKey, ct);
+        if (snapshot == null) return NotFound(new { message = $"No stored snapshots found for {underlyingKey}" });
+        return Ok(snapshot);
+    }
+
+    [HttpPost("capture-snapshot")]
+    public async Task<IActionResult> CaptureSnapshot(
+        [FromQuery] string underlyingKey = "NSE_INDEX|Nifty 50",
+        [FromQuery] string? expiryDate = null,
+        CancellationToken ct = default)
+    {
+        var snapshot = await _snapshotEngine.CaptureAndPersistSnapshotAsync(underlyingKey, expiryDate, ct);
+        if (snapshot == null) return StatusCode(500, new { message = "Failed to capture option chain snapshot" });
+        return Ok(snapshot);
+    }
+
+    [HttpGet("live-candle")]
+    public IActionResult GetLiveCandle(
+        [FromQuery] string instrumentKey = "NSE_INDEX|Nifty 50",
+        [FromQuery] int timeframeMinutes = 1)
+    {
+        var tf = timeframeMinutes switch
+        {
+            5 => CandleTimeframe.FiveMinute,
+            15 => CandleTimeframe.FifteenMinute,
+            _ => CandleTimeframe.OneMinute
+        };
+
+        var candle = _candleEngine.GetCurrentCandle(instrumentKey, tf);
+        if (candle == null) return NotFound(new { message = $"No active {tf} candle forming for {instrumentKey}" });
+        return Ok(candle);
     }
 
     [HttpGet("stream-status")]

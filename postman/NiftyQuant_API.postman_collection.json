@@ -188,6 +188,64 @@
               ]
             }
           }
+        },
+        {
+          "name": "Get Latest Option Chain Snapshot",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/market/latest-snapshot?underlyingKey=NSE_INDEX|Nifty 50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "market", "latest-snapshot"],
+              "query": [
+                {
+                  "key": "underlyingKey",
+                  "value": "NSE_INDEX|Nifty 50"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Trigger Option Chain Snapshot Capture & Persistence",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/market/capture-snapshot?underlyingKey=NSE_INDEX|Nifty 50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "market", "capture-snapshot"],
+              "query": [
+                {
+                  "key": "underlyingKey",
+                  "value": "NSE_INDEX|Nifty 50"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Live Real-time Candle",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/market/live-candle?instrumentKey=NSE_INDEX|Nifty 50&timeframe=OneMinute",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "market", "live-candle"],
+              "query": [
+                {
+                  "key": "instrumentKey",
+                  "value": "NSE_INDEX|Nifty 50"
+                },
+                {
+                  "key": "timeframe",
+                  "value": "OneMinute"
+                }
+              ]
+            }
+          }
         }
       ]
     }

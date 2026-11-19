@@ -65,6 +65,10 @@ public static class DependencyInjection
         services.AddSingleton<IUpstoxWebSocketClient, UpstoxWebSocketClient>();
         services.AddSingleton<ISubscriptionManager, SubscriptionManager>();
 
+        // Storage & Snapshot Engines
+        services.AddSingleton<ICandleAggregationEngine, CandleAggregationEngine>();
+        services.AddSingleton<IOptionChainSnapshotEngine, OptionChainSnapshotEngine>();
+
         return services;
     }
 }

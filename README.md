@@ -80,7 +80,7 @@ dotnet run --project src/NiftyQuant.Api/NiftyQuant.Api.csproj
 
 ---
 
-## Endpoints Implemented (Phase 2)
+## Endpoints Implemented
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
@@ -93,6 +93,10 @@ dotnet run --project src/NiftyQuant.Api/NiftyQuant.Api.csproj
 | `GET` | `/api/market/option-chain?expiryDate=...` | Live option chain with real-time Greeks and PCR |
 | `GET` | `/api/market/candles?interval=1&days=2` | Historical 1-minute OHLCV candles |
 | `POST` | `/api/market/sync-contracts` | Synchronizes active NIFTY option contracts to SQL Server |
+| `GET` | `/api/market/stream-status` | WebSocket connection health, active subscriptions, and tick stats |
+| `GET` | `/api/market/latest-snapshot` | Retrieves most recent persisted option-chain snapshot with quotes |
+| `POST` | `/api/market/capture-snapshot` | Triggers immediate option-chain snapshot, Max Pain, and intraday delta calculation |
+| `GET` | `/api/market/live-candle` | Retrieves real-time in-flight forming candle (1m, 5m, 15m) |
 
 ---
 
@@ -101,8 +105,15 @@ dotnet run --project src/NiftyQuant.Api/NiftyQuant.Api.csproj
 - [x] **Phase 1: Project Foundation** (Solution, Clean Architecture, EF Core SQL Server, Serilog, Swagger, Health Checks, Test Fixtures)
 - [x] **Phase 2: Upstox API Integration** (Authentication, Typed DTOs, Resilience/Retry, Quotes, Option Chain, Historical Candles, Postman collection)
 - [x] **Phase 3: WebSocket Feed V3 & Protobuf Decoding** (Market Data Feed V3, dynamic ATM subscription, Protobuf decoding, resilience & reconnection)
-- [ ] **Phase 4: Market Data Storage & Snapshot Engine**
+- [x] **Phase 4: Market Data Storage & Snapshot Engine** (1m/5m/15m IST-aligned tick aggregation, Option chain snapshots, Max Pain calculation, Intraday OI delta tracking)
 - [ ] **Phase 5: Technical Indicator Engine**
+- [ ] **Phase 6: Options Intelligence Engine**
+- [ ] **Phase 7: Strategy Engine & Multi-Factor Scoring**
+- [ ] **Phase 8: Risk Management Engine**
+- [ ] **Phase 9: Paper Trading Engine**
+- [ ] **Phase 10: Backtesting Framework**
+- [ ] **Phase 11: Real-Time Web Dashboard**
+- [ ] **Phase 12: Production Readiness & Hardening**
 - [ ] **Phase 6: Options Intelligence Engine**
 - [ ] **Phase 7: Strategy Engine & Multi-Factor Scoring**
 - [ ] **Phase 8: Risk Management Engine**

@@ -22,6 +22,111 @@ namespace NiftyQuant.Infrastructure.Persistence.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("NiftyQuant.Domain.Entities.IndicatorSnapshot", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal?>("Adx14")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("Atr14")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("BollingerLower")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("BollingerMiddle")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("BollingerUpper")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime>("CandleTimeUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("Ema200")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("Ema21")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("Ema50")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("Ema9")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<string>("InstrumentKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal?>("Macd")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("MacdHistogram")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("MacdSignal")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("MinusDi")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("PlusDi")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("RelativeVolume")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("Rsi14")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("Supertrend")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<bool?>("SupertrendDirectionIsBullish")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("Timeframe")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("Vwap")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InstrumentKey", "Timeframe", "CandleTimeUtc")
+                        .IsUnique();
+
+                    b.ToTable("IndicatorSnapshots");
+                });
+
             modelBuilder.Entity("NiftyQuant.Domain.Entities.Instrument", b =>
                 {
                     b.Property<string>("InstrumentKey")
@@ -133,6 +238,49 @@ namespace NiftyQuant.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("MarketCandles");
+                });
+
+            modelBuilder.Entity("NiftyQuant.Domain.Entities.MarketRegimeRecord", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<decimal>("AdxValue")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal>("Confidence")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<bool>("EmaBullishCross")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("PriceAboveVwap")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("RegimeType")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("TimestampUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TimestampUtc");
+
+                    b.ToTable("MarketRegimes");
                 });
 
             modelBuilder.Entity("NiftyQuant.Domain.Entities.OptionChainSnapshot", b =>
@@ -264,6 +412,14 @@ namespace NiftyQuant.Infrastructure.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<decimal>("IntradayOiChange")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("IntradayOiChangePercent")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<decimal>("Ltp")
                         .HasPrecision(18, 4)
                         .HasColumnType("decimal(18,4)");
@@ -278,6 +434,9 @@ namespace NiftyQuant.Infrastructure.Persistence.Migrations
                     b.Property<decimal>("PreviousOpenInterest")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<long?>("SnapshotId")
+                        .HasColumnType("bigint");
 
                     b.Property<DateTime>("SnapshotTimeUtc")
                         .HasColumnType("datetime2");
@@ -298,6 +457,8 @@ namespace NiftyQuant.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("SnapshotId");
 
                     b.HasIndex("InstrumentKey", "SnapshotTimeUtc");
 
@@ -659,6 +820,16 @@ namespace NiftyQuant.Infrastructure.Persistence.Migrations
                     b.ToTable("StrategySignals");
                 });
 
+            modelBuilder.Entity("NiftyQuant.Domain.Entities.OptionQuote", b =>
+                {
+                    b.HasOne("NiftyQuant.Domain.Entities.OptionChainSnapshot", "Snapshot")
+                        .WithMany("Quotes")
+                        .HasForeignKey("SnapshotId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Snapshot");
+                });
+
             modelBuilder.Entity("NiftyQuant.Domain.Entities.SignalReason", b =>
                 {
                     b.HasOne("NiftyQuant.Domain.Entities.StrategySignal", "Signal")
@@ -668,6 +839,11 @@ namespace NiftyQuant.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Signal");
+                });
+
+            modelBuilder.Entity("NiftyQuant.Domain.Entities.OptionChainSnapshot", b =>
+                {
+                    b.Navigation("Quotes");
                 });
 
             modelBuilder.Entity("NiftyQuant.Domain.Entities.StrategySignal", b =>
