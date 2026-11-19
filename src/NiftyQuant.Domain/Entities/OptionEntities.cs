@@ -52,5 +52,6 @@ public class OptionQuote
     public decimal? Theta { get; set; }
     public decimal? Vega { get; set; }
     public DateTime SnapshotTimeUtc { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore]
     public OptionChainSnapshot? Snapshot { get; set; }
 }

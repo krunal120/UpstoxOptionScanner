@@ -29,8 +29,14 @@ class SignalRService {
     this.isConnecting = true;
 
     try {
+      const hubUrl =
+        (import.meta.env.VITE_HUB_URL as string | undefined) ||
+        ((import.meta.env.VITE_API_URL as string | undefined)
+          ? `${(import.meta.env.VITE_API_URL as string).replace(/\/api\/?$/, '')}/hubs/market`
+          : '/hubs/market');
+
       this.connection = new signalR.HubConnectionBuilder()
-        .withUrl('/hubs/market', {
+        .withUrl(hubUrl, {
           skipNegotiation: false,
           transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling,
         })

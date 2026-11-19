@@ -38,5 +38,6 @@ public class SignalReason
     public string Category { get; set; } = string.Empty; // Trend, Momentum, PriceAction, VolumeBreadth, OptionChain, Greeks
     public decimal ScoreContribution { get; set; }
     public string Description { get; set; } = string.Empty;
+    [System.Text.Json.Serialization.JsonIgnore]
     public StrategySignal? Signal { get; set; }
 }
