@@ -430,6 +430,87 @@
           }
         }
       ]
+    },
+    {
+      "name": "Strategy",
+      "item": [
+        {
+          "name": "Evaluate Live Strategy & Generate Signal",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/strategy/evaluate?underlyingKey=NSE_INDEX|Nifty 50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "strategy", "evaluate"],
+              "query": [
+                {
+                  "key": "underlyingKey",
+                  "value": "NSE_INDEX|Nifty 50"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Latest Generated Strategy Signal",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/strategy/latest-signal?underlyingKey=NSE_INDEX|Nifty 50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "strategy", "latest-signal"],
+              "query": [
+                {
+                  "key": "underlyingKey",
+                  "value": "NSE_INDEX|Nifty 50"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Strategy Signal History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/strategy/history?underlyingKey=NSE_INDEX|Nifty 50&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "strategy", "history"],
+              "query": [
+                {
+                  "key": "underlyingKey",
+                  "value": "NSE_INDEX|Nifty 50"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Market Regime Classification",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/strategy/regime?underlyingKey=NSE_INDEX|Nifty 50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "strategy", "regime"],
+              "query": [
+                {
+                  "key": "underlyingKey",
+                  "value": "NSE_INDEX|Nifty 50"
+                }
+              ]
+            }
+          }
+        }
+      ]
     }
   ]
 }

@@ -104,6 +104,10 @@ dotnet run --project src/NiftyQuant.Api/NiftyQuant.Api.csproj
 | `GET` | `/api/options/select-contract` | Dynamic optimal CE/PE contract selection for options buying (Delta, Liquidity, Spread) |
 | `GET` | `/api/options/pcr` | Put-Call Ratio (OI & Volume), Trend (Rising/Falling/Flat), and Sentiment Zone |
 | `GET` | `/api/options/levels` | Major and immediate option support/resistance walls and expected trading range |
+| `POST` | `/api/strategy/evaluate` | Evaluates live multi-timeframe context, classifies regime, and generates executable option strategy signal |
+| `GET` | `/api/strategy/latest-signal` | Retrieves latest persisted strategy signal with explainable scoring breakdown and risk parameters |
+| `GET` | `/api/strategy/history` | Fetches recent strategy signals with pagination |
+| `GET` | `/api/strategy/regime` | Classifies current market regime (Strong Bullish, Strong Bearish, Sideways, High Volatility, Transitional) |
 
 ---
 
@@ -115,13 +119,7 @@ dotnet run --project src/NiftyQuant.Api/NiftyQuant.Api.csproj
 - [x] **Phase 4: Market Data Storage & Snapshot Engine** (1m/5m/15m IST-aligned tick aggregation, Option chain snapshots, Max Pain calculation, Intraday OI delta tracking)
 - [x] **Phase 5: Technical Indicator Engine** (Pure C# high-precision EMA 9/21/50/200, Session VWAP, Supertrend 10/3, RSI 14, MACD 12/26/9, ADX 14 with +DI/-DI, Bollinger Bands, Daily CPR & Pivots, Multi-Timeframe Alignment)
 - [x] **Phase 6: Options Intelligence Engine** (Strike-by-strike OI buildup classification: Long/Short Buildup & Covering/Unwinding, PCR trend analysis, Dynamic CE/PE contract selector, Options Sentiment -100 to +100)
-- [ ] **Phase 7: Strategy Engine & Multi-Factor Scoring**
-- [ ] **Phase 8: Risk Management Engine**
-- [ ] **Phase 9: Paper Trading Engine**
-- [ ] **Phase 10: Backtesting Framework**
-- [ ] **Phase 11: Real-Time Web Dashboard**
-- [ ] **Phase 12: Production Readiness & Hardening**
-- [ ] **Phase 7: Strategy Engine & Multi-Factor Scoring**
+- [x] **Phase 7: Strategy Engine & Multi-Factor Scoring** (Market Regime Classifier, Trend Following, Breakout, and Reversal evaluators, Multi-factor composite scoring [0-100], Time-of-day & High Volatility risk vetoes, Delta-weighted option premium target & stop-loss calculations, SQL Server signal persistence)
 - [ ] **Phase 8: Risk Management Engine**
 - [ ] **Phase 9: Paper Trading Engine**
 - [ ] **Phase 10: Backtesting Framework**

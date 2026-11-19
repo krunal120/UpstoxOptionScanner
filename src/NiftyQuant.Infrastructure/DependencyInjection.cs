@@ -69,6 +69,9 @@ public static class DependencyInjection
         services.AddSingleton<ICandleAggregationEngine, CandleAggregationEngine>();
         services.AddSingleton<IOptionChainSnapshotEngine, OptionChainSnapshotEngine>();
 
+        // Strategy Engine
+        services.AddSingleton<IStrategyEngine, StrategyEngine>();
+
         return services;
     }
 }
