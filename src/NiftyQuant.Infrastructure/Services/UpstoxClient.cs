@@ -123,10 +123,13 @@ public class UpstoxClient : IUpstoxClient
         string fromDate,
         CancellationToken ct = default)
     {
-        // Upstox V3 expects 'minutes', 'hours', 'day', 'week', 'month'
+        // Upstox V3 expects plural units: 'minutes', 'hours', 'days', 'weeks', 'months'
         var normalizedUnit = unit.ToLowerInvariant();
         if (normalizedUnit == "minute" || normalizedUnit == "min") normalizedUnit = "minutes";
         if (normalizedUnit == "hour") normalizedUnit = "hours";
+        if (normalizedUnit == "day" || normalizedUnit == "daily") normalizedUnit = "days";
+        if (normalizedUnit == "week" || normalizedUnit == "weekly") normalizedUnit = "weeks";
+        if (normalizedUnit == "month" || normalizedUnit == "monthly") normalizedUnit = "months";
 
         var url = $"/v3/historical-candle/{Uri.EscapeDataString(instrumentKey)}/{normalizedUnit}/{interval}/{toDate}/{fromDate}";
 

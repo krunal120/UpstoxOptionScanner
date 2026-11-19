@@ -248,6 +248,77 @@
           }
         }
       ]
+    },
+    {
+      "name": "Indicators",
+      "item": [
+        {
+          "name": "Get Indicator Snapshot (EMA, Supertrend, RSI, MACD, ADX, VWAP, BB)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/indicators/snapshot?instrumentKey=NSE_INDEX|Nifty 50&timeframe=OneMinute&days=3",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "indicators", "snapshot"],
+              "query": [
+                {
+                  "key": "instrumentKey",
+                  "value": "NSE_INDEX|Nifty 50"
+                },
+                {
+                  "key": "timeframe",
+                  "value": "OneMinute"
+                },
+                {
+                  "key": "days",
+                  "value": "3"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Multi-Timeframe Indicator Alignment (1m, 5m, 15m)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/indicators/multi-timeframe?instrumentKey=NSE_INDEX|Nifty 50&days=3",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "indicators", "multi-timeframe"],
+              "query": [
+                {
+                  "key": "instrumentKey",
+                  "value": "NSE_INDEX|Nifty 50"
+                },
+                {
+                  "key": "days",
+                  "value": "3"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Daily CPR & Classic Pivot Points",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/indicators/cpr?instrumentKey=NSE_INDEX|Nifty 50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "indicators", "cpr"],
+              "query": [
+                {
+                  "key": "instrumentKey",
+                  "value": "NSE_INDEX|Nifty 50"
+                }
+              ]
+            }
+          }
+        }
+      ]
     }
   ]
 }

@@ -97,6 +97,9 @@ dotnet run --project src/NiftyQuant.Api/NiftyQuant.Api.csproj
 | `GET` | `/api/market/latest-snapshot` | Retrieves most recent persisted option-chain snapshot with quotes |
 | `POST` | `/api/market/capture-snapshot` | Triggers immediate option-chain snapshot, Max Pain, and intraday delta calculation |
 | `GET` | `/api/market/live-candle` | Retrieves real-time in-flight forming candle (1m, 5m, 15m) |
+| `GET` | `/api/indicators/snapshot` | Multi-indicator snapshot (EMAs, VWAP, Supertrend, RSI, MACD, ADX, ATR, BB) |
+| `GET` | `/api/indicators/multi-timeframe` | Multi-timeframe trend, Supertrend, and VWAP alignment across 1m, 5m, 15m |
+| `GET` | `/api/indicators/cpr` | Daily CPR (Pivot, TC, BC, Width %) & Classic Pivot Points (R1-R3, S1-S3) |
 
 ---
 
@@ -106,14 +109,7 @@ dotnet run --project src/NiftyQuant.Api/NiftyQuant.Api.csproj
 - [x] **Phase 2: Upstox API Integration** (Authentication, Typed DTOs, Resilience/Retry, Quotes, Option Chain, Historical Candles, Postman collection)
 - [x] **Phase 3: WebSocket Feed V3 & Protobuf Decoding** (Market Data Feed V3, dynamic ATM subscription, Protobuf decoding, resilience & reconnection)
 - [x] **Phase 4: Market Data Storage & Snapshot Engine** (1m/5m/15m IST-aligned tick aggregation, Option chain snapshots, Max Pain calculation, Intraday OI delta tracking)
-- [ ] **Phase 5: Technical Indicator Engine**
-- [ ] **Phase 6: Options Intelligence Engine**
-- [ ] **Phase 7: Strategy Engine & Multi-Factor Scoring**
-- [ ] **Phase 8: Risk Management Engine**
-- [ ] **Phase 9: Paper Trading Engine**
-- [ ] **Phase 10: Backtesting Framework**
-- [ ] **Phase 11: Real-Time Web Dashboard**
-- [ ] **Phase 12: Production Readiness & Hardening**
+- [x] **Phase 5: Technical Indicator Engine** (Pure C# high-precision EMA 9/21/50/200, Session VWAP, Supertrend 10/3, RSI 14, MACD 12/26/9, ADX 14 with +DI/-DI, Bollinger Bands, Daily CPR & Pivots, Multi-Timeframe Alignment)
 - [ ] **Phase 6: Options Intelligence Engine**
 - [ ] **Phase 7: Strategy Engine & Multi-Factor Scoring**
 - [ ] **Phase 8: Risk Management Engine**

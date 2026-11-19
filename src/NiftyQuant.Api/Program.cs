@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.OpenApi.Models;
+using NiftyQuant.Application;
 using NiftyQuant.Infrastructure;
 using NiftyQuant.Infrastructure.Persistence;
 using Scalar.AspNetCore;
@@ -51,6 +52,7 @@ builder.Services.AddCors(options =>
 });
 
 // Register Infrastructure (SQL Server, EF Core, Options)
+builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
 // Configure Health Checks
