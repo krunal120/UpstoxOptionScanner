@@ -92,6 +92,8 @@ public class StrategyEngine : IStrategyEngine
             }));
         }
 
+        var technicalDirection = direction;
+
         if (istNow.TimeOfDay < sessionStartTrading || istNow.TimeOfDay > sessionEndTrading)
         {
             if (direction != SignalDirection.Wait && direction != SignalDirection.NoTrade)
@@ -118,15 +120,24 @@ public class StrategyEngine : IStrategyEngine
             });
         }
 
-        // Contract selection & premium calculation
+        // Contract selection & premium calculation based on technical direction (preserves optimal contract even when vetoed)
         SelectedOptionContractDto? selectedContract = null;
-        if (direction == SignalDirection.BuyCe || direction == SignalDirection.StrongBuyCe)
+        if (technicalDirection == SignalDirection.BuyCe || technicalDirection == SignalDirection.StrongBuyCe ||
+            (direction == SignalDirection.NoTrade && compositeBullScore >= compositeBearScore && compositeBullScore >= 50m))
         {
-            selectedContract = context.OptionsReport.RecommendedCe;
+            selectedContract = context.OptionsReport.RecommendedCe ?? context.OptionsReport.RecommendedPe;
         }
-        else if (direction == SignalDirection.BuyPe || direction == SignalDirection.StrongBuyPe)
+        else if (technicalDirection == SignalDirection.BuyPe || technicalDirection == SignalDirection.StrongBuyPe ||
+            (direction == SignalDirection.NoTrade && compositeBearScore > compositeBullScore && compositeBearScore >= 50m))
         {
-            selectedContract = context.OptionsReport.RecommendedPe;
+            selectedContract = context.OptionsReport.RecommendedPe ?? context.OptionsReport.RecommendedCe;
+        }
+        else
+        {
+            // Fallback to whichever recommended contract has the higher liquidity score
+            selectedContract = (context.OptionsReport.RecommendedCe?.LiquidityScore ?? 0) >= (context.OptionsReport.RecommendedPe?.LiquidityScore ?? 0)
+                ? (context.OptionsReport.RecommendedCe ?? context.OptionsReport.RecommendedPe)
+                : (context.OptionsReport.RecommendedPe ?? context.OptionsReport.RecommendedCe);
         }
 
         // Premium level calculations

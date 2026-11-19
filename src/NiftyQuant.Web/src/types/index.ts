@@ -111,6 +111,7 @@ export interface SelectedOptionContractDto {
   ltp: number;
   delta?: number;
   theta?: number;
+  impliedVolatility?: number;
   liquidityScore: number;
   isRecommended: boolean;
   selectionReason: string;

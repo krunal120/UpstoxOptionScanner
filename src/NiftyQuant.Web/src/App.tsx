@@ -322,6 +322,7 @@ export const App: React.FC = () => {
             regime={regime}
             riskStatus={riskStatus}
             portfolio={portfolio}
+            optionsReport={optionsReport}
             onRefresh={refreshAllData}
           />
         )}
