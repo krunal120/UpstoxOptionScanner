@@ -113,6 +113,13 @@ dotnet run --project src/NiftyQuant.Api/NiftyQuant.Api.csproj
 | `POST` | `/api/risk/validate-signal` | Hard pre-trade risk validation across 10 critical checks before order routing |
 | `GET` | `/api/risk/position-size` | Position sizing, margin requirement, per-share risk, and estimated round-trip charges |
 | `POST` | `/api/risk/reset-daily-limits` | Resets daily loss circuit breakers and locks for testing or new trading session |
+| `POST` | `/api/papertrading/execute-signal` | Validates risk and executes a simulated paper market order with realistic slippage and fees |
+| `GET` | `/api/papertrading/positions` | Active open positions with live LTP, entry price, stop-loss, target, and unrealized PnL |
+| `GET` | `/api/papertrading/trades` | Historical closed trade ledger with gross PnL, brokerage, STT/fees, and net PnL |
+| `GET` | `/api/papertrading/orders` | Order book history with execution prices, slippage, and rejection reasons |
+| `POST` | `/api/papertrading/close-position` | Squares off a specific open paper position at market or specified price |
+| `POST` | `/api/papertrading/square-off-all` | Emergency intraday square-off for all active positions |
+| `GET` | `/api/papertrading/portfolio` | Full portfolio analytics (Win Rate, Profit Factor, Expectancy, Net PnL, Max Drawdown) |
 
 ---
 
@@ -126,7 +133,7 @@ dotnet run --project src/NiftyQuant.Api/NiftyQuant.Api.csproj
 - [x] **Phase 6: Options Intelligence Engine** (Strike-by-strike OI buildup classification: Long/Short Buildup & Covering/Unwinding, PCR trend analysis, Dynamic CE/PE contract selector, Options Sentiment -100 to +100)
 - [x] **Phase 7: Strategy Engine & Multi-Factor Scoring** (Market Regime Classifier, Trend Following, Breakout, and Reversal evaluators, Multi-factor composite scoring [0-100], Time-of-day & High Volatility risk vetoes, Delta-weighted option premium target & stop-loss calculations, SQL Server signal persistence)
 - [x] **Phase 8: Risk Management Engine** (Daily loss limit [1.5% = ₹750], Risk per trade [0.5% = ₹250], Max concurrent positions [1], Max consecutive losses [2], Max daily trades [6], Averaging down / Martingale prohibition, Pre-trade risk validation, Circuit breaker enforcement, Estimated round-trip charges)
-- [ ] **Phase 9: Paper Trading Engine**
+- [x] **Phase 9: Paper Trading Engine** (Realistic execution simulator with buy/sell slippage, round-trip charges, open position tracking, trailing stop-loss to Breakeven at 1.5R, auto target & stop-loss exits, 15:15 IST auto square-off, portfolio performance analytics)
 - [ ] **Phase 10: Backtesting Framework**
 - [ ] **Phase 11: Real-Time Web Dashboard**
 - [ ] **Phase 12: Production Readiness & Hardening**

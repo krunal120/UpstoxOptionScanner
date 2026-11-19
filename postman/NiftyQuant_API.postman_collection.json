@@ -592,6 +592,132 @@
           }
         }
       ]
+    },
+    {
+      "name": "Paper Trading",
+      "item": [
+        {
+          "name": "Execute Approved Strategy Signal",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/papertrading/execute-signal?underlyingKey=NSE_INDEX|Nifty 50&simulateSlippage=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "papertrading", "execute-signal"],
+              "query": [
+                {
+                  "key": "underlyingKey",
+                  "value": "NSE_INDEX|Nifty 50"
+                },
+                {
+                  "key": "simulateSlippage",
+                  "value": "true"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Open Active Paper Positions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/papertrading/positions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "papertrading", "positions"]
+            }
+          }
+        },
+        {
+          "name": "Get Completed Paper Trades Ledger",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/papertrading/trades?limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "papertrading", "trades"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Paper Orders History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/papertrading/orders?limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "papertrading", "orders"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Close Specific Open Position",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"positionId\": \"00000000-0000-0000-0000-000000000000\",\n  \"exitReason\": \"ManualClose\",\n  \"exitPrice\": 145.50\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/papertrading/close-position",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "papertrading", "close-position"]
+            }
+          }
+        },
+        {
+          "name": "Square Off All Active Positions",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/papertrading/square-off-all?reason=ManualSquareoff",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "papertrading", "square-off-all"],
+              "query": [
+                {
+                  "key": "reason",
+                  "value": "ManualSquareoff"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Portfolio Performance Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/papertrading/portfolio",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "papertrading", "portfolio"]
+            }
+          }
+        }
+      ]
     }
   ]
 }

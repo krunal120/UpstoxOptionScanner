@@ -75,6 +75,9 @@ public static class DependencyInjection
         // Risk Management Engine
         services.AddSingleton<IRiskManagementService, RiskManagementService>();
 
+        // Paper Trading Execution Engine
+        services.AddSingleton<IPaperTradingEngine, PaperTradingEngine>();
+
         return services;
     }
 }
