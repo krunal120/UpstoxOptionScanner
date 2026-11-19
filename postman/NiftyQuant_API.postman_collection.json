@@ -1,0 +1,183 @@
+{
+  "info": {
+    "name": "NiftyQuant API & Upstox Integration",
+    "_postman_id": "c1f7b889-4fa2-47de-9800-98b792ff41ea",
+    "description": "Postman Collection for NiftyQuant NIFTY 50 Options Quantitative Trading Engine REST API.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Liveness Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Readiness Check (SQL Server & DB)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health/ready",
+              "host": ["{{baseUrl}}"],
+              "path": ["health", "ready"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Market",
+      "item": [
+        {
+          "name": "Get Market Overview (NIFTY 50 & India VIX)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/market/overview",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "market", "overview"]
+            }
+          }
+        },
+        {
+          "name": "Get Single Quote",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/market/quote?instrumentKey=NSE_INDEX|Nifty 50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "market", "quote"],
+              "query": [
+                {
+                  "key": "instrumentKey",
+                  "value": "NSE_INDEX|Nifty 50"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Batch Quotes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/market/quotes?keys=NSE_INDEX|Nifty 50,NSE_INDEX|India VIX",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "market", "quotes"],
+              "query": [
+                {
+                  "key": "keys",
+                  "value": "NSE_INDEX|Nifty 50,NSE_INDEX|India VIX"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Option Expiries",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/market/expiries?underlyingKey=NSE_INDEX|Nifty 50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "market", "expiries"],
+              "query": [
+                {
+                  "key": "underlyingKey",
+                  "value": "NSE_INDEX|Nifty 50"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Option Chain with Greeks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/market/option-chain?underlyingKey=NSE_INDEX|Nifty 50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "market", "option-chain"],
+              "query": [
+                {
+                  "key": "underlyingKey",
+                  "value": "NSE_INDEX|Nifty 50"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get 1-Minute Historical Candles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/market/candles?instrumentKey=NSE_INDEX|Nifty 50&unit=minutes&interval=1&days=2",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "market", "candles"],
+              "query": [
+                {
+                  "key": "instrumentKey",
+                  "value": "NSE_INDEX|Nifty 50"
+                },
+                {
+                  "key": "unit",
+                  "value": "minutes"
+                },
+                {
+                  "key": "interval",
+                  "value": "1"
+                },
+                {
+                  "key": "days",
+                  "value": "2"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Sync Option Contracts into Database",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/market/sync-contracts?underlyingKey=NSE_INDEX|Nifty 50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "market", "sync-contracts"],
+              "query": [
+                {
+                  "key": "underlyingKey",
+                  "value": "NSE_INDEX|Nifty 50"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

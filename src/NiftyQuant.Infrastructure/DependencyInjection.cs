@@ -1,8 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using NiftyQuant.Application.Common.Interfaces;
 using NiftyQuant.Application.Common.Options;
 using NiftyQuant.Infrastructure.Persistence;
+using NiftyQuant.Infrastructure.Services;
 
 namespace NiftyQuant.Infrastructure;
 
@@ -28,6 +31,24 @@ public static class DependencyInjection
                     maxRetryDelay: TimeSpan.FromSeconds(5),
                     errorNumbersToAdd: null);
             });
+        });
+
+        // Upstox HTTP Client with Authentication Handler and Resilience
+        services.AddTransient<UpstoxAuthenticationHandler>();
+
+        services.AddHttpClient<IUpstoxClient, UpstoxClient>((serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<UpstoxOptions>>().Value;
+            client.BaseAddress = new Uri(options.BaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(30);
+        })
+        .AddHttpMessageHandler<UpstoxAuthenticationHandler>()
+        .AddStandardResilienceHandler(options =>
+        {
+            options.Retry.MaxRetryAttempts = 3;
+            options.Retry.Delay = TimeSpan.FromMilliseconds(500);
+            options.Retry.BackoffType = Polly.DelayBackoffType.Exponential;
+            options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(45);
         });
 
         return services;

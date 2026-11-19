@@ -14,14 +14,17 @@ UpstoxOptionScanner/
 ├── src/
 │   ├── NiftyQuant.Domain/           # Entities, Enums, Value Objects, Domain Rules
 │   ├── NiftyQuant.Application/      # Use cases, Interfaces, DTOs, Configuration Options
-│   ├── NiftyQuant.Infrastructure/   # Upstox REST/WS, EF Core SQL Server Persistence, Protobuf
+│   ├── NiftyQuant.Infrastructure/   # Upstox REST/WS, EF Core SQL Server Persistence, Resilience
 │   ├── NiftyQuant.Worker/           # Background tick ingestion, candle aggregation, signal generator
 │   └── NiftyQuant.Api/              # ASP.NET Core REST API, SignalR Hubs, Swagger UI, Health Checks
 │
-└── tests/
-    ├── NiftyQuant.UnitTests/        # Calculation & domain unit tests
-    ├── NiftyQuant.IntegrationTests/ # EF Core & SQL Server integration tests
-    └── NiftyQuant.StrategyTests/    # Quantitative strategy tests
+├── tests/
+│   ├── NiftyQuant.UnitTests/        # Calculation & domain unit tests
+│   ├── NiftyQuant.IntegrationTests/ # EF Core SQL Server & Upstox live integration tests
+│   └── NiftyQuant.StrategyTests/    # Quantitative strategy tests
+│
+└── postman/
+    └── NiftyQuant_API.postman_collection.json # Postman collection for all API endpoints
 ```
 
 ---
@@ -57,7 +60,7 @@ Configured in `src/NiftyQuant.Api/appsettings.json`:
 
 ## Running the Application
 
-### 1. Run Unit & Integration Tests:
+### 1. Run Unit & Live Integration Tests:
 ```powershell
 dotnet test
 ```
@@ -77,11 +80,27 @@ dotnet run --project src/NiftyQuant.Api/NiftyQuant.Api.csproj
 
 ---
 
+## Endpoints Implemented (Phase 2)
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/health` | Application liveness check |
+| `GET` | `/health/ready` | Readiness check (SQL Server connectivity) |
+| `GET` | `/api/market/overview` | Real-time spot price for NIFTY 50 and India VIX |
+| `GET` | `/api/market/quote?instrumentKey=...` | Single instrument live market quote |
+| `GET` | `/api/market/quotes?keys=...` | Batch market quotes |
+| `GET` | `/api/market/expiries` | Active NIFTY option expiry dates |
+| `GET` | `/api/market/option-chain?expiryDate=...` | Live option chain with real-time Greeks and PCR |
+| `GET` | `/api/market/candles?interval=1&days=2` | Historical 1-minute OHLCV candles |
+| `POST` | `/api/market/sync-contracts` | Synchronizes active NIFTY option contracts to SQL Server |
+
+---
+
 ## Project Status
 
 - [x] **Phase 1: Project Foundation** (Solution, Clean Architecture, EF Core SQL Server, Serilog, Swagger, Health Checks, Test Fixtures)
-- [ ] **Phase 2: Upstox API Integration** (Instrument master, Option chain, Historical candles, Market quotes)
-- [ ] **Phase 3: WebSocket Feed V3 & Protobuf Decoding**
+- [x] **Phase 2: Upstox API Integration** (Authentication, Typed DTOs, Resilience/Retry, Quotes, Option Chain, Historical Candles, Postman collection)
+- [ ] **Phase 3: WebSocket Feed V3 & Protobuf Decoding** (Market Data Feed V3, dynamic ATM subscription)
 - [ ] **Phase 4: Market Data Storage & Snapshot Engine**
 - [ ] **Phase 5: Technical Indicator Engine**
 - [ ] **Phase 6: Options Intelligence Engine**
