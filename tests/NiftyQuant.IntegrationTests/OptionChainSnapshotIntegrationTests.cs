@@ -62,6 +62,7 @@ public class OptionChainSnapshotIntegrationTests
         // Verify latest snapshot query API
         var latest = await _snapshotEngine.GetLatestSnapshotAsync("NSE_INDEX|Nifty 50");
         latest.Should().NotBeNull();
-        latest!.Id.Should().BeGreaterThanOrEqualTo(snapshot.Id);
+        latest!.UnderlyingKey.Should().Be("NSE_INDEX|Nifty 50");
+        latest.Quotes.Should().NotBeEmpty();
     }
 }

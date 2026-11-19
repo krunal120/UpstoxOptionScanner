@@ -226,6 +226,7 @@ public class OptionChainSnapshotEngine : IOptionChainSnapshotEngine
             .Include(s => s.Quotes)
             .Where(s => s.UnderlyingKey == underlyingKey)
             .OrderByDescending(s => s.SnapshotTimeUtc)
+            .ThenByDescending(s => s.Id)
             .FirstOrDefaultAsync(ct);
     }
 

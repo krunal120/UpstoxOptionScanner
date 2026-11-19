@@ -72,6 +72,9 @@ public static class DependencyInjection
         // Strategy Engine
         services.AddSingleton<IStrategyEngine, StrategyEngine>();
 
+        // Risk Management Engine
+        services.AddSingleton<IRiskManagementService, RiskManagementService>();
+
         return services;
     }
 }

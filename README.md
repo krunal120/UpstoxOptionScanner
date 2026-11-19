@@ -108,6 +108,11 @@ dotnet run --project src/NiftyQuant.Api/NiftyQuant.Api.csproj
 | `GET` | `/api/strategy/latest-signal` | Retrieves latest persisted strategy signal with explainable scoring breakdown and risk parameters |
 | `GET` | `/api/strategy/history` | Fetches recent strategy signals with pagination |
 | `GET` | `/api/strategy/regime` | Classifies current market regime (Strong Bullish, Strong Bearish, Sideways, High Volatility, Transitional) |
+| `GET` | `/api/risk/status` | Daily risk metrics, remaining loss budget, consecutive loss count, and circuit breaker status |
+| `GET` | `/api/risk/account` | Virtual paper trading account balance, initial capital, utilized margin, and PnL |
+| `POST` | `/api/risk/validate-signal` | Hard pre-trade risk validation across 10 critical checks before order routing |
+| `GET` | `/api/risk/position-size` | Position sizing, margin requirement, per-share risk, and estimated round-trip charges |
+| `POST` | `/api/risk/reset-daily-limits` | Resets daily loss circuit breakers and locks for testing or new trading session |
 
 ---
 
@@ -120,7 +125,7 @@ dotnet run --project src/NiftyQuant.Api/NiftyQuant.Api.csproj
 - [x] **Phase 5: Technical Indicator Engine** (Pure C# high-precision EMA 9/21/50/200, Session VWAP, Supertrend 10/3, RSI 14, MACD 12/26/9, ADX 14 with +DI/-DI, Bollinger Bands, Daily CPR & Pivots, Multi-Timeframe Alignment)
 - [x] **Phase 6: Options Intelligence Engine** (Strike-by-strike OI buildup classification: Long/Short Buildup & Covering/Unwinding, PCR trend analysis, Dynamic CE/PE contract selector, Options Sentiment -100 to +100)
 - [x] **Phase 7: Strategy Engine & Multi-Factor Scoring** (Market Regime Classifier, Trend Following, Breakout, and Reversal evaluators, Multi-factor composite scoring [0-100], Time-of-day & High Volatility risk vetoes, Delta-weighted option premium target & stop-loss calculations, SQL Server signal persistence)
-- [ ] **Phase 8: Risk Management Engine**
+- [x] **Phase 8: Risk Management Engine** (Daily loss limit [1.5% = ₹750], Risk per trade [0.5% = ₹250], Max concurrent positions [1], Max consecutive losses [2], Max daily trades [6], Averaging down / Martingale prohibition, Pre-trade risk validation, Circuit breaker enforcement, Estimated round-trip charges)
 - [ ] **Phase 9: Paper Trading Engine**
 - [ ] **Phase 10: Backtesting Framework**
 - [ ] **Phase 11: Real-Time Web Dashboard**

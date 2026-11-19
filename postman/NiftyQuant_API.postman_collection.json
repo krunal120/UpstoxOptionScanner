@@ -511,6 +511,87 @@
           }
         }
       ]
+    },
+    {
+      "name": "Risk Management",
+      "item": [
+        {
+          "name": "Get Daily Risk Status & Circuit Breaker State",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/risk/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "risk", "status"]
+            }
+          }
+        },
+        {
+          "name": "Get Paper Trading Account Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/risk/account",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "risk", "account"]
+            }
+          }
+        },
+        {
+          "name": "Validate Pre-Trade Risk for Latest Signal",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/risk/validate-signal?underlyingKey=NSE_INDEX|Nifty 50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "risk", "validate-signal"],
+              "query": [
+                {
+                  "key": "underlyingKey",
+                  "value": "NSE_INDEX|Nifty 50"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Calculate Position Size & Margin Requirement",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/risk/position-size?entryPremium=120&stopLossPremium=100",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "risk", "position-size"],
+              "query": [
+                {
+                  "key": "entryPremium",
+                  "value": "120"
+                },
+                {
+                  "key": "stopLossPremium",
+                  "value": "100"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reset Daily Limits & Circuit Breaker",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/risk/reset-daily-limits",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "risk", "reset-daily-limits"]
+            }
+          }
+        }
+      ]
     }
   ]
 }

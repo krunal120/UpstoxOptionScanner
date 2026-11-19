@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using NiftyQuant.Application.Common.Interfaces;
 using NiftyQuant.Application.Services.Indicators;
 using NiftyQuant.Application.Services.Options;
+using NiftyQuant.Application.Services.Risk;
 using NiftyQuant.Application.Services.Strategy;
 
 namespace NiftyQuant.Application;
@@ -18,6 +19,9 @@ public static class DependencyInjection
         services.AddSingleton<IStrategyEvaluator, TrendFollowingStrategyEvaluator>();
         services.AddSingleton<IStrategyEvaluator, BreakoutStrategyEvaluator>();
         services.AddSingleton<IStrategyEvaluator, ReversalStrategyEvaluator>();
+
+        // Risk & Position Sizing Calculator
+        services.AddSingleton<PositionSizingCalculator>();
 
         return services;
     }
