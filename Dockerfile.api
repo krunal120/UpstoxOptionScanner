@@ -1,0 +1,27 @@
+# Build stage
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+# Copy project files first for optimal docker layer caching
+COPY ["src/NiftyQuant.Domain/NiftyQuant.Domain.csproj", "src/NiftyQuant.Domain/"]
+COPY ["src/NiftyQuant.Application/NiftyQuant.Application.csproj", "src/NiftyQuant.Application/"]
+COPY ["src/NiftyQuant.Infrastructure/NiftyQuant.Infrastructure.csproj", "src/NiftyQuant.Infrastructure/"]
+COPY ["src/NiftyQuant.Api/NiftyQuant.Api.csproj", "src/NiftyQuant.Api/"]
+
+RUN dotnet restore "src/NiftyQuant.Api/NiftyQuant.Api.csproj"
+
+# Copy all source files
+COPY . .
+
+WORKDIR "/src/src/NiftyQuant.Api"
+RUN dotnet publish "NiftyQuant.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
+
+# Runtime stage
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+WORKDIR /app
+COPY --from=build /app/publish .
+
+ENV ASPNETCORE_URLS="http://+:5000"
+EXPOSE 5000
+
+ENTRYPOINT ["dotnet", "NiftyQuant.Api.dll"]

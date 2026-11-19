@@ -1,0 +1,24 @@
+# Build stage
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+# Copy project files for caching
+COPY ["src/NiftyQuant.Domain/NiftyQuant.Domain.csproj", "src/NiftyQuant.Domain/"]
+COPY ["src/NiftyQuant.Application/NiftyQuant.Application.csproj", "src/NiftyQuant.Application/"]
+COPY ["src/NiftyQuant.Infrastructure/NiftyQuant.Infrastructure.csproj", "src/NiftyQuant.Infrastructure/"]
+COPY ["src/NiftyQuant.Worker/NiftyQuant.Worker.csproj", "src/NiftyQuant.Worker/"]
+
+RUN dotnet restore "src/NiftyQuant.Worker/NiftyQuant.Worker.csproj"
+
+# Copy all source files
+COPY . .
+
+WORKDIR "/src/src/NiftyQuant.Worker"
+RUN dotnet publish "NiftyQuant.Worker.csproj" -c Release -o /app/publish /p:UseAppHost=false
+
+# Runtime stage
+FROM mcr.microsoft.com/dotnet/runtime:10.0 AS runtime
+WORKDIR /app
+COPY --from=build /app/publish .
+
+ENTRYPOINT ["dotnet", "NiftyQuant.Worker.dll"]

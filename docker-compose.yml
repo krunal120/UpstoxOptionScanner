@@ -1,0 +1,75 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: niftyquant-sqlserver
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=NiftyQuant2026!StrongPass
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P NiftyQuant2026!StrongPass -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - niftyquant-network
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: niftyquant-api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=NiftyQuantDb;User Id=sa;Password=NiftyQuant2026!StrongPass;TrustServerCertificate=True;MultipleActiveResultSets=true;
+      - Upstox__AccessToken=${UPSTOX_ACCESS_TOKEN:-}
+      - Upstox__BaseUrl=https://api.upstox.com
+      - Upstox__WebSocketUrl=wss://api.upstox.com/v3/feed/market-data-feed
+    ports:
+      - "5000:5000"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    networks:
+      - niftyquant-network
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: niftyquant-worker
+    environment:
+      - DOTNET_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=NiftyQuantDb;User Id=sa;Password=NiftyQuant2026!StrongPass;TrustServerCertificate=True;MultipleActiveResultSets=true;
+      - Upstox__AccessToken=${UPSTOX_ACCESS_TOKEN:-}
+      - Upstox__BaseUrl=https://api.upstox.com
+      - Upstox__WebSocketUrl=wss://api.upstox.com/v3/feed/market-data-feed
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      api:
+        condition: service_started
+    networks:
+      - niftyquant-network
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: niftyquant-web
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    networks:
+      - niftyquant-network
+
+networks:
+  niftyquant-network:
+    driver: bridge
+
+volumes:
+  sqlserver-data:

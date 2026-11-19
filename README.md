@@ -86,6 +86,17 @@ npm run dev
 ```
 The terminal UI will be available at `http://localhost:5173` (or `http://localhost:3000`) with live WebSocket / SignalR feed streaming from the ASP.NET Core API on port 5000.
 
+### 5. Launch Full Stack with Docker Compose:
+```powershell
+$env:UPSTOX_ACCESS_TOKEN="<YOUR_UPSTOX_ACCESS_TOKEN>"
+docker compose up -d --build
+```
+This boots:
+- **SQL Server 2022** on `localhost:1433`
+- **NiftyQuant API** on `http://localhost:5000` (Swagger at `/swagger`)
+- **NiftyQuant Autonomous Worker** running live tick processing, signal evaluation, and paper executions
+- **NiftyQuant Web Dashboard** on `http://localhost:3000`
+
 ---
 
 ## Real-Time Streaming & SignalR Hubs
@@ -159,4 +170,4 @@ The terminal UI will be available at `http://localhost:5173` (or `http://localho
 - [x] **Phase 9: Paper Trading Engine** (Realistic execution simulator with buy/sell slippage, round-trip charges, open position tracking, trailing stop-loss to Breakeven at 1.5R, auto target & stop-loss exits, 15:15 IST auto square-off, portfolio performance analytics)
 - [x] **Phase 10: Backtesting Framework** (Multi-day chronological candle simulation, multi-timeframe rolling indicators & regime classification, synthetic option pricing with delta 0.52, slippage & fee modeling, circuit breakers, equity curve generation, Sharpe & Sortino ratios, strategy and regime performance breakdowns)
 - [x] **Phase 11: Real-Time Web Dashboard** (ASP.NET Core SignalR `MarketHub`, `SignalRBridgeService` event broker, React TypeScript Vite institutional trading interface, live Spot/VIX header with IST clock, Overview tab with spotlight signal execution, Option Chain tab with ATM ±10 strikes matrix and recommended CE/PE, Multi-Timeframe Indicators tab with CPR and gauge visualizers, Paper Trading tab with live positions, trailing stop, and trade ledger, Backtesting Simulator tab with SVG equity curve and performance scorecard, and Risk Safeguards tab with circuit breaker controls)
-- [ ] **Phase 12: Production Readiness & Hardening**
+- [x] **Phase 12: Production Readiness & Hardening** (`NiftyQuant.Worker` autonomous background engine with live tick ingestion, dynamic ATM shift, periodic 60s snapshotting, multi-factor strategy evaluation, automated pre-trade risk validation, paper trade execution, trailing stop-loss updates, 15:15 IST intraday mandatory square-off, Serilog rolling file sinks, multi-stage Dockerfiles for API, Worker, and Web UI, and complete `docker-compose.yml` orchestration)
