@@ -33,6 +33,24 @@ public enum OptionType
     PE = 2
 }
 
+public enum OiBuildupType
+{
+    Neutral = 0,
+    LongBuildup = 1,
+    ShortBuildup = 2,
+    ShortCovering = 3,
+    LongUnwinding = 4
+}
+
+public enum OptionsSentiment
+{
+    ExtremelyBearish = 1,
+    Bearish = 2,
+    Neutral = 3,
+    Bullish = 4,
+    ExtremelyBullish = 5
+}
+
 public enum CandleTimeframe
 {
     OneMinute = 1,

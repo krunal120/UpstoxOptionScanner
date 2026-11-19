@@ -100,6 +100,10 @@ dotnet run --project src/NiftyQuant.Api/NiftyQuant.Api.csproj
 | `GET` | `/api/indicators/snapshot` | Multi-indicator snapshot (EMAs, VWAP, Supertrend, RSI, MACD, ADX, ATR, BB) |
 | `GET` | `/api/indicators/multi-timeframe` | Multi-timeframe trend, Supertrend, and VWAP alignment across 1m, 5m, 15m |
 | `GET` | `/api/indicators/cpr` | Daily CPR (Pivot, TC, BC, Width %) & Classic Pivot Points (R1-R3, S1-S3) |
+| `GET` | `/api/options/intelligence` | Full options intelligence report (Sentiment score, PCR, Max Pain, Key levels, Buildup) |
+| `GET` | `/api/options/select-contract` | Dynamic optimal CE/PE contract selection for options buying (Delta, Liquidity, Spread) |
+| `GET` | `/api/options/pcr` | Put-Call Ratio (OI & Volume), Trend (Rising/Falling/Flat), and Sentiment Zone |
+| `GET` | `/api/options/levels` | Major and immediate option support/resistance walls and expected trading range |
 
 ---
 
@@ -110,7 +114,13 @@ dotnet run --project src/NiftyQuant.Api/NiftyQuant.Api.csproj
 - [x] **Phase 3: WebSocket Feed V3 & Protobuf Decoding** (Market Data Feed V3, dynamic ATM subscription, Protobuf decoding, resilience & reconnection)
 - [x] **Phase 4: Market Data Storage & Snapshot Engine** (1m/5m/15m IST-aligned tick aggregation, Option chain snapshots, Max Pain calculation, Intraday OI delta tracking)
 - [x] **Phase 5: Technical Indicator Engine** (Pure C# high-precision EMA 9/21/50/200, Session VWAP, Supertrend 10/3, RSI 14, MACD 12/26/9, ADX 14 with +DI/-DI, Bollinger Bands, Daily CPR & Pivots, Multi-Timeframe Alignment)
-- [ ] **Phase 6: Options Intelligence Engine**
+- [x] **Phase 6: Options Intelligence Engine** (Strike-by-strike OI buildup classification: Long/Short Buildup & Covering/Unwinding, PCR trend analysis, Dynamic CE/PE contract selector, Options Sentiment -100 to +100)
+- [ ] **Phase 7: Strategy Engine & Multi-Factor Scoring**
+- [ ] **Phase 8: Risk Management Engine**
+- [ ] **Phase 9: Paper Trading Engine**
+- [ ] **Phase 10: Backtesting Framework**
+- [ ] **Phase 11: Real-Time Web Dashboard**
+- [ ] **Phase 12: Production Readiness & Hardening**
 - [ ] **Phase 7: Strategy Engine & Multi-Factor Scoring**
 - [ ] **Phase 8: Risk Management Engine**
 - [ ] **Phase 9: Paper Trading Engine**

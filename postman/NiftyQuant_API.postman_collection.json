@@ -319,6 +319,117 @@
           }
         }
       ]
+    },
+    {
+      "name": "Options Intelligence",
+      "item": [
+        {
+          "name": "Get Full Options Intelligence Report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/options/intelligence?underlyingKey=NSE_INDEX|Nifty 50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "options", "intelligence"],
+              "query": [
+                {
+                  "key": "underlyingKey",
+                  "value": "NSE_INDEX|Nifty 50"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Select Optimal CE Contract for Buying",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/options/select-contract?optionType=CE&underlyingKey=NSE_INDEX|Nifty 50&minLiquidityScore=40",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "options", "select-contract"],
+              "query": [
+                {
+                  "key": "optionType",
+                  "value": "CE"
+                },
+                {
+                  "key": "underlyingKey",
+                  "value": "NSE_INDEX|Nifty 50"
+                },
+                {
+                  "key": "minLiquidityScore",
+                  "value": "40"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Select Optimal PE Contract for Buying",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/options/select-contract?optionType=PE&underlyingKey=NSE_INDEX|Nifty 50&minLiquidityScore=40",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "options", "select-contract"],
+              "query": [
+                {
+                  "key": "optionType",
+                  "value": "PE"
+                },
+                {
+                  "key": "underlyingKey",
+                  "value": "NSE_INDEX|Nifty 50"
+                },
+                {
+                  "key": "minLiquidityScore",
+                  "value": "40"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get PCR Analysis & Sentiment Trend",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/options/pcr?underlyingKey=NSE_INDEX|Nifty 50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "options", "pcr"],
+              "query": [
+                {
+                  "key": "underlyingKey",
+                  "value": "NSE_INDEX|Nifty 50"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Key Support & Resistance Option Levels",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/options/levels?underlyingKey=NSE_INDEX|Nifty 50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "options", "levels"],
+              "query": [
+                {
+                  "key": "underlyingKey",
+                  "value": "NSE_INDEX|Nifty 50"
+                }
+              ]
+            }
+          }
+        }
+      ]
     }
   ]
 }
