@@ -718,6 +718,44 @@
           }
         }
       ]
+    },
+    {
+      "name": "Backtesting",
+      "item": [
+        {
+          "name": "Run Multi-Day Strategy Backtest",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"underlyingKey\": \"NSE_INDEX|Nifty 50\",\n  \"fromDate\": \"2026-11-10T00:00:00Z\",\n  \"toDate\": \"2026-11-19T00:00:00Z\",\n  \"initialCapital\": 50000,\n  \"riskPerTradePercent\": 0.5,\n  \"maxDailyLossPercent\": 1.5,\n  \"maxDailyTrades\": 6,\n  \"maxConsecutiveLosses\": 2,\n  \"minRewardRiskRatio\": 2.0,\n  \"simulateSlippage\": true,\n  \"slippagePercent\": 0.2,\n  \"enableTrailingStop\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/backtest/run",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "backtest", "run"]
+            }
+          }
+        },
+        {
+          "name": "Get Available Backtest Strategies",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/backtest/strategies",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "backtest", "strategies"]
+            }
+          }
+        }
+      ]
     }
   ]
 }

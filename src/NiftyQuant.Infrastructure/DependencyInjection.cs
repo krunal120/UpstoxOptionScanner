@@ -78,6 +78,9 @@ public static class DependencyInjection
         // Paper Trading Execution Engine
         services.AddSingleton<IPaperTradingEngine, PaperTradingEngine>();
 
+        // Backtesting Engine
+        services.AddSingleton<IBacktestingEngine, BacktestingEngine>();
+
         return services;
     }
 }

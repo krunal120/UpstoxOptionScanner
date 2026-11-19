@@ -120,6 +120,8 @@ dotnet run --project src/NiftyQuant.Api/NiftyQuant.Api.csproj
 | `POST` | `/api/papertrading/close-position` | Squares off a specific open paper position at market or specified price |
 | `POST` | `/api/papertrading/square-off-all` | Emergency intraday square-off for all active positions |
 | `GET` | `/api/papertrading/portfolio` | Full portfolio analytics (Win Rate, Profit Factor, Expectancy, Net PnL, Max Drawdown) |
+| `POST` | `/api/backtest/run` | Runs full multi-day quantitative backtesting simulation with risk constraints, slippage, and charges |
+| `GET` | `/api/backtest/strategies` | Returns available strategy families (Trend Following, Breakout, Reversal) for backtesting |
 
 ---
 
@@ -134,6 +136,6 @@ dotnet run --project src/NiftyQuant.Api/NiftyQuant.Api.csproj
 - [x] **Phase 7: Strategy Engine & Multi-Factor Scoring** (Market Regime Classifier, Trend Following, Breakout, and Reversal evaluators, Multi-factor composite scoring [0-100], Time-of-day & High Volatility risk vetoes, Delta-weighted option premium target & stop-loss calculations, SQL Server signal persistence)
 - [x] **Phase 8: Risk Management Engine** (Daily loss limit [1.5% = ₹750], Risk per trade [0.5% = ₹250], Max concurrent positions [1], Max consecutive losses [2], Max daily trades [6], Averaging down / Martingale prohibition, Pre-trade risk validation, Circuit breaker enforcement, Estimated round-trip charges)
 - [x] **Phase 9: Paper Trading Engine** (Realistic execution simulator with buy/sell slippage, round-trip charges, open position tracking, trailing stop-loss to Breakeven at 1.5R, auto target & stop-loss exits, 15:15 IST auto square-off, portfolio performance analytics)
-- [ ] **Phase 10: Backtesting Framework**
+- [x] **Phase 10: Backtesting Framework** (Multi-day chronological candle simulation, multi-timeframe rolling indicators & regime classification, synthetic option pricing with delta 0.52, slippage & fee modeling, circuit breakers, equity curve generation, Sharpe & Sortino ratios, strategy and regime performance breakdowns)
 - [ ] **Phase 11: Real-Time Web Dashboard**
 - [ ] **Phase 12: Production Readiness & Hardening**
