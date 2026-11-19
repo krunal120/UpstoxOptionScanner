@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/NiftyQuant.Api/NiftyQuant.Api.csproj" />
+    <Project Path="src/NiftyQuant.Application/NiftyQuant.Application.csproj" />
+    <Project Path="src/NiftyQuant.Domain/NiftyQuant.Domain.csproj" />
+    <Project Path="src/NiftyQuant.Infrastructure/NiftyQuant.Infrastructure.csproj" />
+    <Project Path="src/NiftyQuant.Worker/NiftyQuant.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NiftyQuant.IntegrationTests/NiftyQuant.IntegrationTests.csproj" />
+    <Project Path="tests/NiftyQuant.StrategyTests/NiftyQuant.StrategyTests.csproj" />
+    <Project Path="tests/NiftyQuant.UnitTests/NiftyQuant.UnitTests.csproj" />
+  </Folder>
+</Solution>
