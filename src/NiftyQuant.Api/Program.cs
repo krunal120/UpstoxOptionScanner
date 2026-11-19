@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.OpenApi.Models;
+using NiftyQuant.Api.Hubs;
+using NiftyQuant.Api.Services;
 using NiftyQuant.Application;
 using NiftyQuant.Infrastructure;
 using NiftyQuant.Infrastructure.Persistence;
@@ -44,7 +46,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowLocalhost", policy =>
     {
-        policy.WithOrigins("http://localhost:3000", "https://localhost:3000")
+        policy.WithOrigins("http://localhost:3000", "https://localhost:3000", "http://localhost:5173", "https://localhost:5173")
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -54,6 +56,9 @@ builder.Services.AddCors(options =>
 // Register Infrastructure (SQL Server, EF Core, Options)
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+
+// Real-Time SignalR Bridge Service
+builder.Services.AddHostedService<SignalRBridgeService>();
 
 // Configure Health Checks
 builder.Services.AddHealthChecks()
@@ -131,6 +136,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
     }
 });
 
+app.MapHub<MarketHub>("/hubs/market");
 app.MapControllers();
 
 // Root route redirect directly to Swagger UI
