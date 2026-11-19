@@ -4,6 +4,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.OpenApi.Models;
 using NiftyQuant.Infrastructure;
 using NiftyQuant.Infrastructure.Persistence;
+using Scalar.AspNetCore;
 using Serilog;
 using System.Text.Json;
 
@@ -78,26 +79,31 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// Configure HTTP pipeline
-if (app.Environment.IsDevelopment() || true)
-{
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "NiftyQuant API v1");
-        c.RoutePrefix = "swagger";
-    });
-}
-
 app.UseSerilogRequestLogging();
 app.UseCors("AllowLocalhost");
+app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthorization();
+
+// Swagger JSON & Swagger UI
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "NiftyQuant API v1");
+    c.RoutePrefix = "swagger";
+});
+
+// Modern Scalar API reference UI at /scalar/v1
+app.MapScalarApiReference(options =>
+{
+    options.WithOpenApiRoutePattern("/swagger/v1/swagger.json");
+    options.WithTitle("NiftyQuant Trading Engine API");
+});
 
 // Health Check Endpoints
 app.MapHealthChecks("/health", new HealthCheckOptions
 {
-    Predicate = _ => false // Liveness check: does not test external dependencies
+    Predicate = _ => false
 });
 
 app.MapHealthChecks("/health/ready", new HealthCheckOptions
@@ -125,17 +131,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 
 app.MapControllers();
 
-// Root route redirect or status info
-app.MapGet("/", () => Results.Ok(new
-{
-    Application = "NiftyQuant Quantitative Trading Engine",
-    Status = "Online",
-    Environment = app.Environment.EnvironmentName,
-    Version = "1.0.0",
-    Documentation = "/swagger",
-    Health = "/health",
-    Readiness = "/health/ready",
-    TimestampUtc = DateTime.UtcNow
-}));
+// Root route redirect directly to Swagger UI
+app.MapGet("/", () => Results.Redirect("/swagger"));
 
 app.Run();
