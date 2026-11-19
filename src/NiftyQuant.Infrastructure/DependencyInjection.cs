@@ -6,6 +6,7 @@ using NiftyQuant.Application.Common.Interfaces;
 using NiftyQuant.Application.Common.Options;
 using NiftyQuant.Infrastructure.Persistence;
 using NiftyQuant.Infrastructure.Services;
+using NiftyQuant.Infrastructure.WebSockets;
 
 namespace NiftyQuant.Infrastructure;
 
@@ -50,6 +51,19 @@ public static class DependencyInjection
             options.Retry.BackoffType = Polly.DelayBackoffType.Exponential;
             options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(45);
         });
+
+        // Auth client used by WebSocket streamer for dynamic authorize redirects
+        services.AddHttpClient("UpstoxAuthClient", (serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<IOptions<UpstoxOptions>>().Value;
+            client.BaseAddress = new Uri(options.BaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(30);
+        })
+        .AddHttpMessageHandler<UpstoxAuthenticationHandler>();
+
+        // Singleton WebSocket Streamer and Subscription Manager
+        services.AddSingleton<IUpstoxWebSocketClient, UpstoxWebSocketClient>();
+        services.AddSingleton<ISubscriptionManager, SubscriptionManager>();
 
         return services;
     }

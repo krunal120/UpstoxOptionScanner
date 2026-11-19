@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\NiftyQuant.Domain\NiftyQuant.Domain.csproj" />
     <ProjectReference Include="..\..\src\NiftyQuant.Application\NiftyQuant.Application.csproj" />
+    <ProjectReference Include="..\..\src\NiftyQuant.Infrastructure\NiftyQuant.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

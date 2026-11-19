@@ -12,17 +12,36 @@ namespace NiftyQuant.Api.Controllers;
 public class MarketController : ControllerBase
 {
     private readonly IUpstoxClient _upstoxClient;
+    private readonly IUpstoxWebSocketClient _webSocketClient;
+    private readonly ISubscriptionManager _subscriptionManager;
     private readonly NiftyQuantDbContext _dbContext;
     private readonly ILogger<MarketController> _logger;
 
     public MarketController(
         IUpstoxClient upstoxClient,
+        IUpstoxWebSocketClient webSocketClient,
+        ISubscriptionManager subscriptionManager,
         NiftyQuantDbContext dbContext,
         ILogger<MarketController> logger)
     {
         _upstoxClient = upstoxClient;
+        _webSocketClient = webSocketClient;
+        _subscriptionManager = subscriptionManager;
         _dbContext = dbContext;
         _logger = logger;
+    }
+
+    [HttpGet("stream-status")]
+    public IActionResult GetStreamStatus()
+    {
+        return Ok(new
+        {
+            isConnected = _webSocketClient.IsConnected,
+            currentAtmStrike = _subscriptionManager.CurrentAtmStrike,
+            currentExpiry = _subscriptionManager.CurrentExpiry,
+            subscribedCount = _webSocketClient.SubscribedInstruments.Count,
+            subscribedInstruments = _webSocketClient.SubscribedInstruments
+        });
     }
 
     [HttpGet("overview")]

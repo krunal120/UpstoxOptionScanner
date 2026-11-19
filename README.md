@@ -100,7 +100,7 @@ dotnet run --project src/NiftyQuant.Api/NiftyQuant.Api.csproj
 
 - [x] **Phase 1: Project Foundation** (Solution, Clean Architecture, EF Core SQL Server, Serilog, Swagger, Health Checks, Test Fixtures)
 - [x] **Phase 2: Upstox API Integration** (Authentication, Typed DTOs, Resilience/Retry, Quotes, Option Chain, Historical Candles, Postman collection)
-- [ ] **Phase 3: WebSocket Feed V3 & Protobuf Decoding** (Market Data Feed V3, dynamic ATM subscription)
+- [x] **Phase 3: WebSocket Feed V3 & Protobuf Decoding** (Market Data Feed V3, dynamic ATM subscription, Protobuf decoding, resilience & reconnection)
 - [ ] **Phase 4: Market Data Storage & Snapshot Engine**
 - [ ] **Phase 5: Technical Indicator Engine**
 - [ ] **Phase 6: Options Intelligence Engine**

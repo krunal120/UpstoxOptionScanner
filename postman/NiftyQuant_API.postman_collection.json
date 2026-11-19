@@ -160,6 +160,18 @@
           }
         },
         {
+          "name": "Get WebSocket Stream Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/market/stream-status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "market", "stream-status"]
+            }
+          }
+        },
+        {
           "name": "Sync Option Contracts into Database",
           "request": {
             "method": "POST",
