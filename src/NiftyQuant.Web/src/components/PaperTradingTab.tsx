@@ -21,7 +21,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { api } from '../services/api';
-import { formatToIST } from '../utils/dateUtils';
+import { formatDateIST, formatToIST } from '../utils/dateUtils';
 import type {
   AutonomousTradingStatusDto,
   PaperAccountDto,
@@ -558,6 +558,21 @@ export const PaperTradingTab: React.FC<PaperTradingTabProps> = ({
                         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                           Qty: {pos.quantity} ({Math.round(pos.quantity / 75)} Lots)
                         </span>
+                        {pos.expiryDate && (
+                          <span
+                            style={{
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                              color: 'var(--color-blue)',
+                              fontFamily: 'JetBrains Mono',
+                            }}
+                          >
+                            Exp: {formatDateIST(pos.expiryDate)}
+                          </span>
+                        )}
                       </div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
                         Entry Time: {formatIST(pos.openedAtUtc)} &bull; Instrument: {pos.instrumentKey}
@@ -650,6 +665,7 @@ export const PaperTradingTab: React.FC<PaperTradingTabProps> = ({
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--border-color)', color: 'var(--text-muted)' }}>
                   <th style={{ padding: '10px' }}>Contract</th>
+                  <th style={{ padding: '10px' }}>Expiry</th>
                   <th style={{ padding: '10px' }}>Side / Qty</th>
                   <th style={{ padding: '10px' }}>Entry Time</th>
                   <th style={{ padding: '10px' }}>Sell / Exit Time</th>
@@ -686,6 +702,9 @@ export const PaperTradingTab: React.FC<PaperTradingTabProps> = ({
                           </span>
                           <span>{displayName}</span>
                         </div>
+                      </td>
+                      <td style={{ padding: '10px', fontSize: '0.8rem', color: 'var(--color-blue)', fontFamily: 'JetBrains Mono' }}>
+                        {formatDateIST(t.expiryDate)}
                       </td>
                       <td style={{ padding: '10px' }}>
                         BUY / {t.quantity} shares
