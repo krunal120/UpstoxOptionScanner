@@ -27,3 +27,12 @@ public class RiskOptions
     public decimal SlippagePerOrderPercent { get; set; } = 0.2m; // 0.2% estimated slippage
     public decimal BrokeragePerOrder { get; set; } = 20.0m; // Rs 20 per order
 }
+
+public class MegaBullOptions
+{
+    public const string SectionName = "MegaBull";
+
+    public string BaseUrl { get; set; } = "https://api.megabull.in";
+    public string ApiKey { get; set; } = string.Empty;
+    public bool IsEnabled { get; set; } = true;
+}

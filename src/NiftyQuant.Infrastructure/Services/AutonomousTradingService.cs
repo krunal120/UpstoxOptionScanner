@@ -25,6 +25,7 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
     private readonly ITechnicalIndicatorService _indicatorService;
     private readonly IOptionsIntelligenceService _optionsIntelligence;
     private readonly IUpstoxClient _upstoxClient;
+    private readonly IMegaBullService _megaBullService;
     private readonly RiskOptions _riskOptions;
     private readonly ILogger<AutonomousTradingService> _logger;
     private readonly TimeZoneInfo _istZone;
@@ -50,6 +51,7 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
         ITechnicalIndicatorService indicatorService,
         IOptionsIntelligenceService optionsIntelligence,
         IUpstoxClient upstoxClient,
+        IMegaBullService megaBullService,
         IOptions<RiskOptions> riskOptions,
         ILogger<AutonomousTradingService> logger)
     {
@@ -62,6 +64,7 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
         _indicatorService = indicatorService;
         _optionsIntelligence = optionsIntelligence;
         _upstoxClient = upstoxClient;
+        _megaBullService = megaBullService;
         _riskOptions = riskOptions.Value;
         _logger = logger;
         _istZone = ResolveIstTimeZone();
@@ -197,6 +200,25 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
                 _lastExecutionTime = DateTime.UtcNow;
                 _logger.LogInformation("[AUTO-TRADER ORDER FILLED] Successfully punched BUY {Symbol} (Qty: {Qty}) @ ₹{Price:F2} | Order ID: {OrderId} | SL: ₹{SL:F2} | Tgt: ₹{Tgt:F2}",
                     execResult.TradingSymbol, execResult.Quantity, execResult.ExecutedPrice, execResult.OrderId, execResult.StopLossPrice, execResult.TargetPrice);
+
+                // Mirror order to MegaBull external paper trading platform
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _megaBullService.PlaceOrderAsync(
+                            execResult.TradingSymbol,
+                            signal.SelectedOptionType.ToString(),
+                            signal.SelectedStrike,
+                            signal.SelectedExpiry,
+                            execResult.Quantity,
+                            "BUY");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "[MEGABULL] Failed to mirror BUY order to MegaBull");
+                    }
+                });
             }
             else
             {
@@ -330,6 +352,24 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
         _logger.LogInformation("[AUTO-TRADER POSITION CLOSED] {Symbol} ({Qty} shares) exited @ ₹{Exit:F2} (Entry: ₹{Entry:F2}) | Gross: ₹{Gross:F2} | Charges: ₹{Charges:F2} | Net PnL: ₹{Net:F2} ({Return:F1}%) | Exit Reason: {Reason} | Duration: {Mins} mins",
             trade.TradingSymbol, trade.Quantity, trade.ExitPrice, trade.EntryPrice, trade.GrossPnL, trade.TotalCharges, trade.NetPnL, trade.ReturnPercent, trade.ExitReason, trade.DurationMinutes);
 
+        // Mirror exit order to MegaBull
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _megaBullService.ClosePositionAsync(
+                    trade.TradingSymbol ?? string.Empty,
+                    trade.OptionType.ToString(),
+                    trade.StrikePrice,
+                    trade.ExpiryDate,
+                    trade.Quantity);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[MEGABULL] Failed to mirror exit order to MegaBull");
+            }
+        });
+
         return Task.CompletedTask;
     }
 
@@ -428,6 +468,25 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
         {
             _totalOrdersPunchedToday++;
             _lastExecutionTime = DateTime.UtcNow;
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _megaBullService.PlaceOrderAsync(
+                        result.TradingSymbol,
+                        isCe ? "CE" : "PE",
+                        strike,
+                        signal.SelectedExpiry,
+                        result.Quantity,
+                        "BUY",
+                        CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[MEGABULL] Failed to mirror test BUY order to MegaBull");
+                }
+            });
         }
 
         return result;

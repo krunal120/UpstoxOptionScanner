@@ -17,6 +17,7 @@ public static class DependencyInjection
         // Bind Options
         services.Configure<UpstoxOptions>(configuration.GetSection(UpstoxOptions.SectionName));
         services.Configure<RiskOptions>(configuration.GetSection(RiskOptions.SectionName));
+        services.Configure<MegaBullOptions>(configuration.GetSection(MegaBullOptions.SectionName));
 
         // Configure SQL Server DbContext
         var connectionString = configuration.GetConnectionString("DefaultConnection") 
@@ -87,6 +88,14 @@ public static class DependencyInjection
 
         // Backtesting Engine
         services.AddSingleton<IBacktestingEngine, BacktestingEngine>();
+
+        // MegaBull External Paper Trading Service
+        services.AddHttpClient<IMegaBullService, MegaBullService>((sp, client) =>
+        {
+            var opts = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MegaBullOptions>>().Value;
+            client.BaseAddress = new Uri(opts.BaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
 
         return services;
     }

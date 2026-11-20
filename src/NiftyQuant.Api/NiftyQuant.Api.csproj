@@ -26,4 +26,10 @@
     <UserSecretsId>niftyquant-api-secrets-2026</UserSecretsId>
   </PropertyGroup>
 
+  <ItemGroup>
+    <None Update="megabull_instruments.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
