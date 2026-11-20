@@ -126,10 +126,12 @@ public class MarketController : ControllerBase
     public async Task<IActionResult> GetExpiries([FromQuery] string underlyingKey = "NSE_INDEX|Nifty 50", CancellationToken ct = default)
     {
         var contracts = await _upstoxClient.GetOptionContractsAsync(underlyingKey, ct);
+        var todayUtc = DateTime.UtcNow.Date;
         var expiries = contracts
+            .Where(c => DateTime.TryParse(c.Expiry, out var dt) && dt.Date >= todayUtc)
             .Select(c => c.Expiry)
             .Distinct()
-            .OrderBy(e => e)
+            .OrderBy(e => DateTime.Parse(e))
             .ToList();
 
         return Ok(expiries);

@@ -25,6 +25,7 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
     private readonly ITechnicalIndicatorService _indicatorService;
     private readonly IOptionsIntelligenceService _optionsIntelligence;
     private readonly IUpstoxClient _upstoxClient;
+    private readonly ISubscriptionManager _subscriptionManager;
     private readonly IMegaBullService _megaBullService;
     private readonly RiskOptions _riskOptions;
     private readonly ILogger<AutonomousTradingService> _logger;
@@ -51,6 +52,7 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
         ITechnicalIndicatorService indicatorService,
         IOptionsIntelligenceService optionsIntelligence,
         IUpstoxClient upstoxClient,
+        ISubscriptionManager subscriptionManager,
         IMegaBullService megaBullService,
         IOptions<RiskOptions> riskOptions,
         ILogger<AutonomousTradingService> logger)
@@ -64,6 +66,7 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
         _indicatorService = indicatorService;
         _optionsIntelligence = optionsIntelligence;
         _upstoxClient = upstoxClient;
+        _subscriptionManager = subscriptionManager;
         _megaBullService = megaBullService;
         _riskOptions = riskOptions.Value;
         _logger = logger;
@@ -151,6 +154,24 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
         if (IsMarketHoursOnly && !IsTradingHours())
         {
             _logger.LogInformation("[AUTO-TRADER] Outside market hours (09:20 - 15:10 IST). Skipping execution.");
+            return;
+        }
+
+        // Expiry Validation: Strictly trade CURRENT active weekly expiry only (no previous/expired, no next/distant expiries)
+        var todayUtc = DateTime.UtcNow.Date;
+        if (signal.SelectedExpiry.Date < todayUtc)
+        {
+            _logger.LogWarning("[AUTO-TRADER EXPIRY VETO] Rejected order for {Symbol}: Expiry {Exp:dd-MMM-yyyy} is in the past.",
+                signal.SelectedInstrumentKey, signal.SelectedExpiry);
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_subscriptionManager.CurrentExpiry) &&
+            DateTime.TryParse(_subscriptionManager.CurrentExpiry, out var activeExp) &&
+            signal.SelectedExpiry.Date != activeExp.Date)
+        {
+            _logger.LogWarning("[AUTO-TRADER EXPIRY VETO] Rejected order for {Symbol}: Expiry {Exp:dd-MMM-yyyy} does not match current active weekly expiry {ActiveExp:dd-MMM-yyyy}. Non-current expiries are strictly disabled.",
+                signal.SelectedInstrumentKey, signal.SelectedExpiry, activeExp);
             return;
         }
 
@@ -317,7 +338,10 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
             return null;
         }
 
-        var snapshot = await _snapshotEngine.GetLatestSnapshotAsync(underlyingKey, ct);
+        var currentExpiry = _subscriptionManager.CurrentExpiry;
+        var snapshot = (!string.IsNullOrWhiteSpace(currentExpiry)
+            ? await _snapshotEngine.GetLatestSnapshotAsync(underlyingKey, currentExpiry, ct)
+            : null) ?? await _snapshotEngine.GetLatestSnapshotAsync(underlyingKey, ct);
         var optionsReport = snapshot != null
             ? _optionsIntelligence.AnalyzeSnapshot(snapshot)
             : new OptionsIntelligenceReportDto();
@@ -430,6 +454,10 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
         string instrumentKey = $"NSE_FO|NIFTY{strike:0}{(isCe ? "CE" : "PE")}";
         string tradingSymbol = $"NIFTY {strike:0} {(isCe ? "CE" : "PE")}";
 
+        DateTime selectedExpiry = !string.IsNullOrWhiteSpace(_subscriptionManager.CurrentExpiry) && DateTime.TryParse(_subscriptionManager.CurrentExpiry, out var parsedExp)
+            ? parsedExp.Date
+            : DateTime.UtcNow.Date.AddDays(3);
+
         var signal = new StrategySignal
         {
             Id = Guid.NewGuid(),
@@ -445,7 +473,7 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
             SelectedInstrumentKey = instrumentKey,
             SelectedStrike = strike,
             SelectedOptionType = isCe ? OptionType.CE : OptionType.PE,
-            SelectedExpiry = DateTime.UtcNow.Date.AddDays(4),
+            SelectedExpiry = selectedExpiry,
             EntryPremium = premium,
             StopLossPremium = sl,
             Target1Premium = t1,

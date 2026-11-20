@@ -56,11 +56,13 @@ public class SubscriptionManager : ISubscriptionManager
                 return;
             }
 
-            // Pick nearest active expiry
+            // Pick nearest active expiry (strictly current active weekly expiry >= today)
+            var todayUtc = DateTime.UtcNow.Date;
             _currentExpiry = _contracts
+                .Where(c => DateTime.TryParse(c.Expiry, out var dt) && dt.Date >= todayUtc)
                 .Select(c => c.Expiry)
                 .Distinct()
-                .OrderBy(e => e)
+                .OrderBy(e => DateTime.Parse(e))
                 .FirstOrDefault() ?? string.Empty;
 
             _logger.LogInformation("Selected nearest option expiry: {Expiry}", _currentExpiry);

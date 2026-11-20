@@ -38,7 +38,14 @@ public class OptionChainSnapshotEngine : IOptionChainSnapshotEngine
             if (string.IsNullOrWhiteSpace(expiryDate))
             {
                 var contracts = await _upstoxClient.GetOptionContractsAsync(underlyingKey, ct);
-                expiryDate = contracts.Select(c => c.Expiry).Distinct().OrderBy(e => e).FirstOrDefault();
+                var todayUtc = DateTime.UtcNow.Date;
+                expiryDate = contracts
+                    .Where(c => DateTime.TryParse(c.Expiry, out var dt) && dt.Date >= todayUtc)
+                    .Select(c => c.Expiry)
+                    .Distinct()
+                    .OrderBy(e => DateTime.Parse(e))
+                    .FirstOrDefault();
+
                 if (string.IsNullOrWhiteSpace(expiryDate))
                 {
                     _logger.LogWarning("No active option expiries found for {Underlying}", underlyingKey);
@@ -237,6 +244,23 @@ public class OptionChainSnapshotEngine : IOptionChainSnapshotEngine
         if (!string.IsNullOrWhiteSpace(expiryDate) && DateTime.TryParse(expiryDate, out var exp))
         {
             query = query.Where(s => s.ExpiryDate == exp.Date);
+        }
+        else
+        {
+            // Default: Strictly Current Active Expiry (nearest active expiry >= today)
+            var todayUtc = DateTime.UtcNow.Date;
+            var activeSnapshots = query.Where(s => s.ExpiryDate >= todayUtc);
+
+            var nearestActiveExpiry = await activeSnapshots
+                .Select(s => s.ExpiryDate)
+                .Distinct()
+                .OrderBy(e => e)
+                .FirstOrDefaultAsync(ct);
+
+            if (nearestActiveExpiry != default)
+            {
+                query = query.Where(s => s.ExpiryDate == nearestActiveExpiry);
+            }
         }
 
         return await query

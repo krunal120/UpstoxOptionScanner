@@ -135,7 +135,8 @@ public class MegaBullService : IMegaBullService
             kvp.Key.StartsWith("NIFTY", StringComparison.OrdinalIgnoreCase) &&
             kvp.Key.EndsWith(opt, StringComparison.OrdinalIgnoreCase) &&
             kvp.Key.Contains(strikeStr) &&
-            kvp.Key.Contains(monthStr));
+            kvp.Key.Contains(monthStr) &&
+            (kvp.Key.Contains(dayStr) || kvp.Key.Contains(expiryDate.Day.ToString())));
 
         return match.Value;
     }
