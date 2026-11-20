@@ -25,10 +25,11 @@ public class OptionsController : ControllerBase
     [HttpGet("intelligence")]
     public async Task<IActionResult> GetOptionsIntelligence(
         [FromQuery] string underlyingKey = "NSE_INDEX|Nifty 50",
+        [FromQuery] string? expiryDate = null,
         CancellationToken ct = default)
     {
-        var snapshot = await _snapshotEngine.GetLatestSnapshotAsync(underlyingKey, ct)
-                       ?? await _snapshotEngine.CaptureAndPersistSnapshotAsync(underlyingKey, ct: ct);
+        var snapshot = await _snapshotEngine.GetLatestSnapshotAsync(underlyingKey, expiryDate, ct)
+                       ?? await _snapshotEngine.CaptureAndPersistSnapshotAsync(underlyingKey, expiryDate, ct: ct);
 
         if (snapshot == null)
         {

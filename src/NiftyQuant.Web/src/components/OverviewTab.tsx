@@ -17,6 +17,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { api } from '../services/api';
+import { formatToIST } from '../utils/dateUtils';
 import type {
   DailyRiskStatusDto,
   MarketRegimeResultDto,
@@ -673,7 +674,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
               {signalHistory.map((s) => (
                 <tr key={s.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                   <td style={{ padding: '8px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    {new Date(s.signalTimeUtc).toLocaleTimeString()}
+                    {formatToIST(s.signalTimeUtc, { showDate: true, showSeconds: true })}
                   </td>
                   <td style={{ padding: '8px' }}>
                     <span

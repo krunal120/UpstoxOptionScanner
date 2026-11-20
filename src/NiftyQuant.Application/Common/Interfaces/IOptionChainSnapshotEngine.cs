@@ -14,4 +14,9 @@ public interface IOptionChainSnapshotEngine
     Task<OptionChainSnapshot?> GetLatestSnapshotAsync(
         string underlyingKey = "NSE_INDEX|Nifty 50",
         CancellationToken ct = default);
+
+    Task<OptionChainSnapshot?> GetLatestSnapshotAsync(
+        string underlyingKey,
+        string? expiryDate,
+        CancellationToken ct = default);
 }

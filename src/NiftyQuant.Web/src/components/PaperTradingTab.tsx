@@ -21,6 +21,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { api } from '../services/api';
+import { formatToIST } from '../utils/dateUtils';
 import type {
   AutonomousTradingStatusDto,
   PaperAccountDto,
@@ -55,7 +56,6 @@ export const PaperTradingTab: React.FC<PaperTradingTabProps> = ({
   const [actionFeedback, setActionFeedback] = useState<{ message: string; isError: boolean } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isTogglingAuto, setIsTogglingAuto] = useState(false);
-  const [isTriggeringTestOrder, setIsTriggeringTestOrder] = useState<string | null>(null);
 
   const isAutoEnabled = autoTradingStatus?.isEnabled ?? true;
   const currentConfidence = autoTradingStatus?.minConfidenceThreshold ?? 65;
@@ -102,26 +102,6 @@ export const PaperTradingTab: React.FC<PaperTradingTabProps> = ({
         message: err.message || 'Failed to update confidence threshold',
         isError: true,
       });
-    }
-  };
-
-  const handleTriggerTestOrder = async (optionType: 'CE' | 'PE') => {
-    setIsTriggeringTestOrder(optionType);
-    setActionFeedback(null);
-    try {
-      const res = await api.testExecuteOrder(optionType, 25500, 75);
-      setActionFeedback({
-        message: `[TEST ORDER PUNCHED] BUY ${res.tradingSymbol || (optionType === 'CE' ? 'NIFTY 25500 CE' : 'NIFTY 25500 PE')} @ ₹${res.executedPrice?.toFixed(2) || '125.50'} (SL: ₹${res.stopLossPrice?.toFixed(2) || '100.50'}, Target: ₹${res.targetPrice?.toFixed(2) || '175.50'}). Monitoring active!`,
-        isError: false,
-      });
-      await onRefresh();
-    } catch (err: any) {
-      setActionFeedback({
-        message: err.message || 'Failed to trigger test order execution',
-        isError: true,
-      });
-    } finally {
-      setIsTriggeringTestOrder(null);
     }
   };
 
@@ -172,13 +152,7 @@ export const PaperTradingTab: React.FC<PaperTradingTabProps> = ({
   };
 
   const formatIST = (dateStr?: string) => {
-    if (!dateStr) return '-';
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleTimeString('en-IN', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' IST';
-    } catch {
-      return dateStr;
-    }
+    return formatToIST(dateStr, { showDate: true, showSeconds: true });
   };
 
   return (
@@ -266,50 +240,6 @@ export const PaperTradingTab: React.FC<PaperTradingTabProps> = ({
                 <option value={75}>75% (Ultra High)</option>
               </select>
             </div>
-
-            {/* Test Auto BUY CE */}
-            <button
-              onClick={() => handleTriggerTestOrder('CE')}
-              disabled={isTriggeringTestOrder !== null}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '6px 12px',
-                borderRadius: '6px',
-                backgroundColor: 'rgba(14, 203, 129, 0.15)',
-                border: '1px solid var(--color-green)',
-                color: 'var(--color-green)',
-                fontWeight: 700,
-                fontSize: '0.8rem',
-                cursor: 'pointer',
-              }}
-              title="Test the complete automated Buy -> Monitor -> Sell pipeline immediately"
-            >
-              <Zap size={14} /> {isTriggeringTestOrder === 'CE' ? 'Punching CE...' : 'Test Auto BUY CE'}
-            </button>
-
-            {/* Test Auto BUY PE */}
-            <button
-              onClick={() => handleTriggerTestOrder('PE')}
-              disabled={isTriggeringTestOrder !== null}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px',
-                padding: '6px 12px',
-                borderRadius: '6px',
-                backgroundColor: 'rgba(246, 70, 93, 0.15)',
-                border: '1px solid var(--color-red)',
-                color: 'var(--color-red)',
-                fontWeight: 700,
-                fontSize: '0.8rem',
-                cursor: 'pointer',
-              }}
-              title="Test the complete automated Buy -> Monitor -> Sell pipeline immediately"
-            >
-              <Zap size={14} /> {isTriggeringTestOrder === 'PE' ? 'Punching PE...' : 'Test Auto BUY PE'}
-            </button>
 
             {/* Master Toggle Button */}
             <button

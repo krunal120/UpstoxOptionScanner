@@ -217,14 +217,29 @@ public class OptionChainSnapshotEngine : IOptionChainSnapshotEngine
         }
     }
 
-    public async Task<OptionChainSnapshot?> GetLatestSnapshotAsync(string underlyingKey = "NSE_INDEX|Nifty 50", CancellationToken ct = default)
+    public Task<OptionChainSnapshot?> GetLatestSnapshotAsync(string underlyingKey = "NSE_INDEX|Nifty 50", CancellationToken ct = default)
+    {
+        return GetLatestSnapshotAsync(underlyingKey, null, ct);
+    }
+
+    public async Task<OptionChainSnapshot?> GetLatestSnapshotAsync(
+        string underlyingKey,
+        string? expiryDate,
+        CancellationToken ct = default)
     {
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<NiftyQuantDbContext>();
 
-        return await db.OptionChainSnapshots
+        var query = db.OptionChainSnapshots
             .Include(s => s.Quotes)
-            .Where(s => s.UnderlyingKey == underlyingKey)
+            .Where(s => s.UnderlyingKey == underlyingKey);
+
+        if (!string.IsNullOrWhiteSpace(expiryDate) && DateTime.TryParse(expiryDate, out var exp))
+        {
+            query = query.Where(s => s.ExpiryDate == exp.Date);
+        }
+
+        return await query
             .OrderByDescending(s => s.SnapshotTimeUtc)
             .ThenByDescending(s => s.Id)
             .FirstOrDefaultAsync(ct);

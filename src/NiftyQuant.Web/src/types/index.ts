@@ -121,6 +121,7 @@ export interface OptionsReportDto {
   underlyingKey: string;
   underlyingPrice: number;
   expiryDate: string;
+  snapshotTimeUtc?: string;
   totalStrikesAnalyzed: number;
   pcrAnalysis: PcrAnalysisDto;
   keyLevels: KeyLevelsDto;

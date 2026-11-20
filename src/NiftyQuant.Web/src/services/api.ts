@@ -70,9 +70,31 @@ export const api = {
     };
   },
 
-  // Options Intelligence
-  getOptionsIntelligence: async (underlyingKey = 'NSE_INDEX|Nifty 50'): Promise<OptionsReportDto> => {
-    const res = await fetch(`${API_BASE}/options/intelligence?underlyingKey=${encodeURIComponent(underlyingKey)}`);
+  // Options Intelligence & Expiries
+  getExpiries: async (underlyingKey = 'NSE_INDEX|Nifty 50'): Promise<string[]> => {
+    try {
+      const res = await fetch(`${API_BASE}/market/expiries?underlyingKey=${encodeURIComponent(underlyingKey)}`);
+      if (!res.ok) return [];
+      return res.json();
+    } catch {
+      return [];
+    }
+  },
+
+  getOptionChainRaw: async (expiryDate?: string, underlyingKey = 'NSE_INDEX|Nifty 50'): Promise<any> => {
+    const url = expiryDate
+      ? `${API_BASE}/market/option-chain?underlyingKey=${encodeURIComponent(underlyingKey)}&expiryDate=${encodeURIComponent(expiryDate)}`
+      : `${API_BASE}/market/option-chain?underlyingKey=${encodeURIComponent(underlyingKey)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Failed to fetch option chain');
+    return res.json();
+  },
+
+  getOptionsIntelligence: async (expiryDate?: string, underlyingKey = 'NSE_INDEX|Nifty 50'): Promise<OptionsReportDto> => {
+    const url = expiryDate
+      ? `${API_BASE}/options/intelligence?underlyingKey=${encodeURIComponent(underlyingKey)}&expiryDate=${encodeURIComponent(expiryDate)}`
+      : `${API_BASE}/options/intelligence?underlyingKey=${encodeURIComponent(underlyingKey)}`;
+    const res = await fetch(url);
     if (!res.ok) throw new Error('Failed to fetch options intelligence');
     const data = await res.json();
 

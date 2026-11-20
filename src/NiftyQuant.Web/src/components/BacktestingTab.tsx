@@ -15,6 +15,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { api } from '../services/api';
+import { formatToIST } from '../utils/dateUtils';
 import type { BacktestRequestDto, BacktestResultDto } from '../types';
 
 export const BacktestingTab: React.FC = () => {
@@ -589,8 +590,7 @@ export const BacktestingTab: React.FC = () => {
                           </span>
                         </td>
                         <td style={{ padding: '8px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                          {new Date(t.entryTimeUtc).toLocaleDateString()}{' '}
-                          {new Date(t.entryTimeUtc).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {formatToIST(t.entryTimeUtc, { showDate: true, showSeconds: false })}
                         </td>
                         <td style={{ padding: '8px', fontFamily: 'JetBrains Mono' }}>₹{t.entryPrice.toFixed(1)}</td>
                         <td style={{ padding: '8px', fontFamily: 'JetBrains Mono' }}>₹{t.exitPrice.toFixed(1)}</td>
