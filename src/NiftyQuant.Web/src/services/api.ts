@@ -1,4 +1,5 @@
 import type {
+  AutonomousTradingStatusDto,
   BacktestRequestDto,
   BacktestResultDto,
   DailyRiskStatusDto,
@@ -225,6 +226,34 @@ export const api = {
     const res = await fetch(`${API_BASE}/papertrading/portfolio`);
     if (!res.ok) throw new Error('Failed to fetch portfolio summary');
     return res.json();
+  },
+
+  // Autonomous Trading
+  getAutoTradingStatus: async (): Promise<AutonomousTradingStatusDto> => {
+    const res = await fetch(`${API_BASE}/papertrading/auto-trade/status`);
+    if (!res.ok) throw new Error('Failed to fetch auto-trading status');
+    return res.json();
+  },
+
+  toggleAutoTrading: async (req: { enabled?: boolean; minConfidence?: number; marketHoursOnly?: boolean }): Promise<AutonomousTradingStatusDto> => {
+    const res = await fetch(`${API_BASE}/papertrading/auto-trade/toggle`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    });
+    if (!res.ok) throw new Error('Failed to update auto-trading settings');
+    return res.json();
+  },
+
+  testExecuteOrder: async (optionType: 'CE' | 'PE', strikePrice?: number, confidence = 75): Promise<any> => {
+    const res = await fetch(`${API_BASE}/papertrading/auto-trade/test-execute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ optionType, strikePrice, confidence }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Failed to trigger test order execution');
+    return data;
   },
 
   // Backtesting

@@ -19,6 +19,7 @@ import { RiskTab } from './components/RiskTab';
 import { api } from './services/api';
 import { signalRClient } from './services/signalr';
 import type {
+  AutonomousTradingStatusDto,
   DailyRiskStatusDto,
   MarketOverview,
   MarketRegimeResultDto,
@@ -50,12 +51,13 @@ export const App: React.FC = () => {
   const [openPositions, setOpenPositions] = useState<PaperPositionDto[]>([]);
   const [trades, setTrades] = useState<PaperTradeDto[]>([]);
   const [orders, setOrders] = useState<PaperOrderDto[]>([]);
+  const [autoTradingStatus, setAutoTradingStatus] = useState<AutonomousTradingStatusDto | null>(null);
   const [isSignalRConnected, setIsSignalRConnected] = useState<boolean>(false);
 
   // Central refresh dispatcher
   const refreshAllData = useCallback(async () => {
     try {
-      const [ov, reg, sig, hist, rpt, mtf, rsk, acc, port, pos, trd, ord] = await Promise.allSettled([
+      const [ov, reg, sig, hist, rpt, mtf, rsk, acc, port, pos, trd, ord, auto] = await Promise.allSettled([
         api.getMarketOverview(),
         api.getMarketRegime(),
         api.getLatestSignal(),
@@ -68,6 +70,7 @@ export const App: React.FC = () => {
         api.getOpenPositions(),
         api.getTradeHistory(30),
         api.getOrderHistory(30),
+        api.getAutoTradingStatus(),
       ]);
 
       if (ov.status === 'fulfilled') setOverview(ov.value);
@@ -82,6 +85,7 @@ export const App: React.FC = () => {
       if (pos.status === 'fulfilled') setOpenPositions(pos.value);
       if (trd.status === 'fulfilled') setTrades(trd.value);
       if (ord.status === 'fulfilled') setOrders(ord.value);
+      if (auto.status === 'fulfilled') setAutoTradingStatus(auto.value);
     } catch (err) {
       console.warn('Refresh data failed:', err);
     }
@@ -342,6 +346,7 @@ export const App: React.FC = () => {
             openPositions={openPositions}
             trades={trades}
             orders={orders}
+            autoTradingStatus={autoTradingStatus}
             onRefresh={refreshAllData}
           />
         )}

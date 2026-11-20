@@ -48,6 +48,8 @@ class SignalRService {
         'ReceiveCandle',
         'ReceiveSnapshot',
         'ReceiveSignal',
+        'ReceiveOrderPlaced',
+        'ReceiveOrderExecuted',
         'ReceivePositionOpened',
         'ReceivePositionUpdated',
         'ReceiveTradeClosed',

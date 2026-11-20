@@ -23,7 +23,10 @@ public class PaperOrder
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid? SignalId { get; set; }
     public string InstrumentKey { get; set; } = string.Empty;
+    public string? TradingSymbol { get; set; } = string.Empty;
     public PaperOrderSide Side { get; set; }
+    public OptionType OptionType { get; set; } = OptionType.CE;
+    public decimal StrikePrice { get; set; }
     public int Quantity { get; set; }
     public decimal OrderedPrice { get; set; }
     public decimal ExecutedPrice { get; set; }
@@ -39,6 +42,7 @@ public class PaperPosition
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public string InstrumentKey { get; set; } = string.Empty;
+    public string? TradingSymbol { get; set; } = string.Empty;
     public OptionType OptionType { get; set; }
     public decimal StrikePrice { get; set; }
     public DateTime ExpiryDate { get; set; }
@@ -47,6 +51,8 @@ public class PaperPosition
     public decimal CurrentLtp { get; set; }
     public decimal StopLossPrice { get; set; }
     public decimal TargetPrice { get; set; }
+    public decimal TrailingStopLossPrice { get; set; }
+    public decimal MaxLtpReached { get; set; }
     public decimal UnrealizedPnL { get; set; }
     public bool IsOpen { get; set; } = true;
     public DateTime OpenedAtUtc { get; set; } = DateTime.UtcNow;
@@ -58,6 +64,10 @@ public class PaperTrade
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid? SignalId { get; set; }
     public string InstrumentKey { get; set; } = string.Empty;
+    public string? TradingSymbol { get; set; } = string.Empty;
+    public OptionType OptionType { get; set; } = OptionType.CE;
+    public decimal StrikePrice { get; set; }
+    public DateTime ExpiryDate { get; set; }
     public int Quantity { get; set; }
     public decimal EntryPrice { get; set; }
     public decimal ExitPrice { get; set; }
@@ -65,6 +75,8 @@ public class PaperTrade
     public decimal TotalCharges { get; set; }
     public decimal GrossPnL { get; set; }
     public decimal NetPnL { get; set; }
+    public decimal ReturnPercent { get; set; }
+    public double DurationMinutes { get; set; }
     public DateTime EntryTimeUtc { get; set; }
     public DateTime ExitTimeUtc { get; set; }
     public string ExitReason { get; set; } = string.Empty; // TargetHit, StopLossHit, EndOfDaySquareoff, RiskVeto

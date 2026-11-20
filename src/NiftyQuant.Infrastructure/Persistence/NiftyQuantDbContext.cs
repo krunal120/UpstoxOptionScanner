@@ -192,6 +192,8 @@ public class NiftyQuantDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.InstrumentKey).HasMaxLength(100);
+            entity.Property(e => e.TradingSymbol).HasMaxLength(100);
+            entity.Property(e => e.StrikePrice).HasPrecision(18, 2);
             entity.Property(e => e.OrderedPrice).HasPrecision(18, 4);
             entity.Property(e => e.ExecutedPrice).HasPrecision(18, 4);
             entity.Property(e => e.Slippage).HasPrecision(18, 4);
@@ -203,11 +205,14 @@ public class NiftyQuantDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.InstrumentKey).HasMaxLength(100);
+            entity.Property(e => e.TradingSymbol).HasMaxLength(100);
             entity.Property(e => e.StrikePrice).HasPrecision(18, 2);
             entity.Property(e => e.AverageBuyPrice).HasPrecision(18, 4);
             entity.Property(e => e.CurrentLtp).HasPrecision(18, 4);
             entity.Property(e => e.StopLossPrice).HasPrecision(18, 4);
             entity.Property(e => e.TargetPrice).HasPrecision(18, 4);
+            entity.Property(e => e.TrailingStopLossPrice).HasPrecision(18, 4);
+            entity.Property(e => e.MaxLtpReached).HasPrecision(18, 4);
             entity.Property(e => e.UnrealizedPnL).HasPrecision(18, 2);
         });
 
@@ -216,12 +221,15 @@ public class NiftyQuantDbContext : DbContext
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.InstrumentKey).HasMaxLength(100);
+            entity.Property(e => e.TradingSymbol).HasMaxLength(100);
+            entity.Property(e => e.StrikePrice).HasPrecision(18, 2);
             entity.Property(e => e.EntryPrice).HasPrecision(18, 4);
             entity.Property(e => e.ExitPrice).HasPrecision(18, 4);
             entity.Property(e => e.SlippagePaid).HasPrecision(18, 4);
             entity.Property(e => e.TotalCharges).HasPrecision(18, 2);
             entity.Property(e => e.GrossPnL).HasPrecision(18, 2);
             entity.Property(e => e.NetPnL).HasPrecision(18, 2);
+            entity.Property(e => e.ReturnPercent).HasPrecision(18, 4);
         });
     }
 }

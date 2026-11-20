@@ -37,6 +37,8 @@ public class SignalRBridgeService : IHostedService
         _candleEngine.OnCandleFinalized += HandleCandleFinalizedAsync;
         _snapshotEngine.OnSnapshotCaptured += HandleSnapshotCapturedAsync;
         _strategyEngine.OnSignalGenerated += HandleSignalGeneratedAsync;
+        _paperEngine.OnOrderPlaced += HandleOrderPlacedAsync;
+        _paperEngine.OnOrderExecuted += HandleOrderExecutedAsync;
         _paperEngine.OnPositionOpened += HandlePositionOpenedAsync;
         _paperEngine.OnPositionUpdated += HandlePositionUpdatedAsync;
         _paperEngine.OnPositionClosed += HandlePositionClosedAsync;
@@ -51,6 +53,8 @@ public class SignalRBridgeService : IHostedService
         _candleEngine.OnCandleFinalized -= HandleCandleFinalizedAsync;
         _snapshotEngine.OnSnapshotCaptured -= HandleSnapshotCapturedAsync;
         _strategyEngine.OnSignalGenerated -= HandleSignalGeneratedAsync;
+        _paperEngine.OnOrderPlaced -= HandleOrderPlacedAsync;
+        _paperEngine.OnOrderExecuted -= HandleOrderExecutedAsync;
         _paperEngine.OnPositionOpened -= HandlePositionOpenedAsync;
         _paperEngine.OnPositionUpdated -= HandlePositionUpdatedAsync;
         _paperEngine.OnPositionClosed -= HandlePositionClosedAsync;
@@ -104,6 +108,30 @@ public class SignalRBridgeService : IHostedService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error broadcasting strategy signal over SignalR.");
+        }
+    }
+
+    private async Task HandleOrderPlacedAsync(PaperOrder order)
+    {
+        try
+        {
+            await _hubContext.Clients.Group("MarketFeed").SendAsync("ReceiveOrderPlaced", order);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error broadcasting order placed over SignalR.");
+        }
+    }
+
+    private async Task HandleOrderExecutedAsync(PaperOrder order)
+    {
+        try
+        {
+            await _hubContext.Clients.Group("MarketFeed").SendAsync("ReceiveOrderExecuted", order);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error broadcasting order executed over SignalR.");
         }
     }
 

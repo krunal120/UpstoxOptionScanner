@@ -262,6 +262,7 @@ export interface PaperAccountDto {
 export interface PaperPositionDto {
   id: string;
   instrumentKey: string;
+  tradingSymbol?: string;
   optionType: OptionType;
   strikePrice: number;
   expiryDate: string;
@@ -270,6 +271,8 @@ export interface PaperPositionDto {
   currentLtp: number;
   stopLossPrice: number;
   targetPrice: number;
+  trailingStopLossPrice?: number;
+  maxLtpReached?: number;
   unrealizedPnL: number;
   isOpen: boolean;
   openedAtUtc: string;
@@ -278,6 +281,10 @@ export interface PaperPositionDto {
 export interface PaperTradeDto {
   id: string;
   instrumentKey: string;
+  tradingSymbol?: string;
+  optionType?: OptionType;
+  strikePrice?: number;
+  expiryDate?: string;
   quantity: number;
   entryPrice: number;
   exitPrice: number;
@@ -285,6 +292,8 @@ export interface PaperTradeDto {
   totalCharges: number;
   grossPnL: number;
   netPnL: number;
+  returnPercent?: number;
+  durationMinutes?: number;
   entryTimeUtc: string;
   exitTimeUtc: string;
   exitReason: string;
@@ -293,15 +302,30 @@ export interface PaperTradeDto {
 export interface PaperOrderDto {
   id: string;
   instrumentKey: string;
-  side: number;
+  tradingSymbol?: string;
+  side: number | string;
+  optionType?: OptionType;
+  strikePrice?: number;
   quantity: number;
   orderedPrice: number;
   executedPrice: number;
   slippage: number;
   estimatedCharges: number;
-  status: number;
+  status: number | string;
   rejectReason?: string;
   orderTimeUtc: string;
+}
+
+export interface AutonomousTradingStatusDto {
+  isEnabled: boolean;
+  executionMode: string;
+  minConfidenceThreshold: number;
+  isMarketHoursOnly: boolean;
+  lastExecutionTime?: string;
+  totalOrdersPunchedToday: number;
+  totalOrdersExitedToday: number;
+  activePositionsCount: number;
+  statusMessage: string;
 }
 
 export interface PaperPortfolioSummaryDto {

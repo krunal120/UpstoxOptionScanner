@@ -101,12 +101,19 @@ public class PaperTradingEngine : IPaperTradingEngine
             executedPrice, executedPrice, quantity, _riskOptions.BrokeragePerOrder);
 
         // 3. Create and Save PaperOrder
+        string tradingSymbol = !string.IsNullOrEmpty(signal.SelectedInstrumentKey) && signal.SelectedStrike > 0
+            ? $"NIFTY {signal.SelectedStrike:0} {signal.SelectedOptionType}"
+            : (signal.Direction.ToString().Contains("Ce") ? "NIFTY CE" : "NIFTY PE");
+
         var order = new PaperOrder
         {
             Id = Guid.NewGuid(),
             SignalId = signal.Id,
             InstrumentKey = signal.SelectedInstrumentKey,
+            TradingSymbol = tradingSymbol,
             Side = PaperOrderSide.Buy,
+            OptionType = signal.SelectedOptionType,
+            StrikePrice = signal.SelectedStrike,
             Quantity = quantity,
             OrderedPrice = signal.EntryPremium,
             ExecutedPrice = executedPrice,
@@ -126,6 +133,7 @@ public class PaperTradingEngine : IPaperTradingEngine
         {
             Id = Guid.NewGuid(),
             InstrumentKey = signal.SelectedInstrumentKey,
+            TradingSymbol = tradingSymbol,
             OptionType = signal.SelectedOptionType,
             StrikePrice = signal.SelectedStrike,
             ExpiryDate = signal.SelectedExpiry,
@@ -134,6 +142,8 @@ public class PaperTradingEngine : IPaperTradingEngine
             CurrentLtp = executedPrice,
             StopLossPrice = signal.StopLossPremium,
             TargetPrice = target1,
+            TrailingStopLossPrice = signal.StopLossPremium,
+            MaxLtpReached = executedPrice,
             UnrealizedPnL = 0m,
             IsOpen = true,
             OpenedAtUtc = DateTime.UtcNow
@@ -218,6 +228,10 @@ public class PaperTradingEngine : IPaperTradingEngine
         decimal totalCharges = _calculator.CalculateEstimatedRoundTripCharges(
             position.AverageBuyPrice, actualExitPrice, position.Quantity, _riskOptions.BrokeragePerOrder);
         decimal netPnL = Math.Round(grossPnL - totalCharges, 2);
+        decimal returnPercent = position.AverageBuyPrice > 0m
+            ? Math.Round(((actualExitPrice - position.AverageBuyPrice) / position.AverageBuyPrice) * 100m, 2)
+            : 0m;
+        double durationMinutes = Math.Round((DateTime.UtcNow - position.OpenedAtUtc).TotalMinutes, 1);
 
         // Close position
         position.IsOpen = false;
@@ -230,7 +244,10 @@ public class PaperTradingEngine : IPaperTradingEngine
         {
             Id = Guid.NewGuid(),
             InstrumentKey = position.InstrumentKey,
+            TradingSymbol = position.TradingSymbol,
             Side = PaperOrderSide.Sell,
+            OptionType = position.OptionType,
+            StrikePrice = position.StrikePrice,
             Quantity = position.Quantity,
             OrderedPrice = rawPrice,
             ExecutedPrice = actualExitPrice,
@@ -247,6 +264,10 @@ public class PaperTradingEngine : IPaperTradingEngine
         {
             Id = Guid.NewGuid(),
             InstrumentKey = position.InstrumentKey,
+            TradingSymbol = position.TradingSymbol,
+            OptionType = position.OptionType,
+            StrikePrice = position.StrikePrice,
+            ExpiryDate = position.ExpiryDate,
             Quantity = position.Quantity,
             EntryPrice = position.AverageBuyPrice,
             ExitPrice = actualExitPrice,
@@ -254,6 +275,8 @@ public class PaperTradingEngine : IPaperTradingEngine
             TotalCharges = totalCharges,
             GrossPnL = grossPnL,
             NetPnL = netPnL,
+            ReturnPercent = returnPercent,
+            DurationMinutes = durationMinutes,
             EntryTimeUtc = position.OpenedAtUtc,
             ExitTimeUtc = DateTime.UtcNow,
             ExitReason = exitReason,
@@ -324,59 +347,88 @@ public class PaperTradingEngine : IPaperTradingEngine
         decimal currentLtp,
         CancellationToken ct = default)
     {
-        using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<NiftyQuantDbContext>();
+        if (currentLtp <= 0m) return;
 
-        var positions = await db.PaperPositions
-            .Where(p => p.IsOpen && p.InstrumentKey == instrumentKey)
-            .ToListAsync(ct);
+        List<Guid> positionsToCloseSl = new();
+        List<Guid> positionsToCloseTgt = new();
 
-        if (positions.Count == 0) return;
-
-        foreach (var pos in positions)
+        using (var scope = _scopeFactory.CreateScope())
         {
-            pos.CurrentLtp = currentLtp;
-            pos.UnrealizedPnL = Math.Round((currentLtp - pos.AverageBuyPrice) * pos.Quantity, 2);
+            var db = scope.ServiceProvider.GetRequiredService<NiftyQuantDbContext>();
 
-            // 1. Stop Loss Hit Check
-            if (currentLtp <= pos.StopLossPrice)
-            {
-                _logger.LogWarning("Stop loss hit for {Key}! Current=₹{Ltp}, SL=₹{SL}", instrumentKey, currentLtp, pos.StopLossPrice);
-                _ = ClosePositionAsync(pos.Id, "StopLossHit", currentLtp, ct);
-                continue;
-            }
+            var positions = await db.PaperPositions
+                .Where(p => p.IsOpen && p.InstrumentKey == instrumentKey)
+                .ToListAsync(ct);
 
-            // 2. Target Hit Check
-            if (currentLtp >= pos.TargetPrice)
-            {
-                _logger.LogInformation("Target hit for {Key}! Current=₹{Ltp}, Target=₹{Tgt}", instrumentKey, currentLtp, pos.TargetPrice);
-                _ = ClosePositionAsync(pos.Id, "TargetHit", currentLtp, ct);
-                continue;
-            }
+            if (positions.Count == 0) return;
 
-            // 3. Trailing Stop Loss to Breakeven
-            if (_riskOptions.EnableTrailingStopLoss)
+            foreach (var pos in positions)
             {
-                decimal initialRisk = pos.AverageBuyPrice - pos.StopLossPrice;
-                if (initialRisk > 0m)
+                pos.CurrentLtp = currentLtp;
+                pos.UnrealizedPnL = Math.Round((currentLtp - pos.AverageBuyPrice) * pos.Quantity, 2);
+
+                if (currentLtp > pos.MaxLtpReached)
                 {
-                    decimal profitDistance = currentLtp - pos.AverageBuyPrice;
-                    // If trade has achieved 1.5R, move stop loss to Breakeven (+ ₹1.0 buffer)
-                    if (profitDistance >= (initialRisk * 1.5m) && pos.StopLossPrice < pos.AverageBuyPrice)
+                    pos.MaxLtpReached = currentLtp;
+                }
+
+                // 1. Stop Loss Hit Check
+                if (currentLtp <= pos.StopLossPrice)
+                {
+                    _logger.LogWarning("Stop loss hit for {Symbol}! Current=₹{Ltp}, SL=₹{SL}", 
+                        !string.IsNullOrEmpty(pos.TradingSymbol) ? pos.TradingSymbol : instrumentKey, 
+                        currentLtp, pos.StopLossPrice);
+                    positionsToCloseSl.Add(pos.Id);
+                    continue;
+                }
+
+                // 2. Target Hit Check
+                if (currentLtp >= pos.TargetPrice)
+                {
+                    _logger.LogInformation("Target hit for {Symbol}! Current=₹{Ltp}, Target=₹{Tgt}", 
+                        !string.IsNullOrEmpty(pos.TradingSymbol) ? pos.TradingSymbol : instrumentKey, 
+                        currentLtp, pos.TargetPrice);
+                    positionsToCloseTgt.Add(pos.Id);
+                    continue;
+                }
+
+                // 3. Trailing Stop Loss to Breakeven & Guaranteed Profits
+                if (_riskOptions.EnableTrailingStopLoss)
+                {
+                    decimal initialRisk = pos.AverageBuyPrice - pos.StopLossPrice;
+                    if (initialRisk > 0m)
                     {
-                        pos.StopLossPrice = pos.AverageBuyPrice + 1.0m;
-                        _logger.LogInformation("Trailing stop loss adjusted to Breakeven for {Key}: New SL=₹{SL}", instrumentKey, pos.StopLossPrice);
+                        decimal profitDistance = currentLtp - pos.AverageBuyPrice;
+                        // If trade has achieved 1.5R, move stop loss to Breakeven (+ ₹1.0 buffer)
+                        if (profitDistance >= (initialRisk * 1.5m) && pos.StopLossPrice < (pos.AverageBuyPrice + 1.0m))
+                        {
+                            pos.StopLossPrice = pos.AverageBuyPrice + 1.0m;
+                            pos.TrailingStopLossPrice = pos.StopLossPrice;
+                            _logger.LogInformation("Trailing stop loss adjusted to Breakeven for {Symbol}: New SL=₹{SL}", 
+                                pos.TradingSymbol, pos.StopLossPrice);
+                        }
                     }
+                }
+
+                if (OnPositionUpdated != null)
+                {
+                    await OnPositionUpdated.Invoke(pos);
                 }
             }
 
-            if (OnPositionUpdated != null)
-            {
-                await OnPositionUpdated.Invoke(pos);
-            }
+            await db.SaveChangesAsync(ct);
         }
 
-        await db.SaveChangesAsync(ct);
+        // Close positions that hit SL or Target
+        foreach (var id in positionsToCloseSl)
+        {
+            await ClosePositionAsync(id, "StopLossHit", currentLtp, ct);
+        }
+
+        foreach (var id in positionsToCloseTgt)
+        {
+            await ClosePositionAsync(id, "TargetHit", currentLtp, ct);
+        }
     }
 
     public async Task<IReadOnlyList<PaperPosition>> GetOpenPositionsAsync(CancellationToken ct = default)

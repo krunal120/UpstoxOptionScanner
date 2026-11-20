@@ -76,6 +76,9 @@ builder.Services.AddInfrastructure(builder.Configuration);
 // Real-Time SignalR Bridge Service
 builder.Services.AddHostedService<SignalRBridgeService>();
 
+// Autonomous Options Trading Service (Auto-Punches CE/PE orders & Auto-Exits on SL/Target/Trailing SL)
+builder.Services.AddHostedService(sp => sp.GetRequiredService<NiftyQuant.Infrastructure.Services.AutonomousTradingService>());
+
 // Configure Health Checks
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<NiftyQuantDbContext>(

@@ -78,6 +78,10 @@ public static class DependencyInjection
         // Paper Trading Execution Engine
         services.AddSingleton<IPaperTradingEngine, PaperTradingEngine>();
 
+        // Autonomous Trading Execution Service
+        services.AddSingleton<AutonomousTradingService>();
+        services.AddSingleton<IAutonomousTradingService>(sp => sp.GetRequiredService<AutonomousTradingService>());
+
         // Backtesting Engine
         services.AddSingleton<IBacktestingEngine, BacktestingEngine>();
 
