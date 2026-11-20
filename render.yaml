@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: niftyquant
+    env: docker
+    dockerfilePath: Dockerfile
+    plan: free
+    region: oregon
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ConnectionStrings__DefaultConnection
+        sync: false
+      - key: Upstox__AccessToken
+        sync: false
+      - key: Upstox__BaseUrl
+        value: https://api.upstox.com
+      - key: Upstox__WebSocketUrl
+        value: wss://api.upstox.com/v3/feed/market-data-feed

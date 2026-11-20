@@ -13,6 +13,13 @@ using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Cloud Port Binding (Render, Railway, Fly.io support)
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrEmpty(port))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
+
 // Configure Serilog
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
@@ -158,7 +165,15 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 app.MapHub<MarketHub>("/hubs/market");
 app.MapControllers();
 
-// Root route redirect directly to Swagger UI
-app.MapGet("/", () => Results.Redirect("/swagger"));
+// Serve React Web UI if present in wwwroot, otherwise fallback to Swagger
+var webRoot = app.Environment.WebRootPath ?? Path.Combine(AppContext.BaseDirectory, "wwwroot");
+if (File.Exists(Path.Combine(webRoot, "index.html")))
+{
+    app.MapFallbackToFile("index.html");
+}
+else
+{
+    app.MapGet("/", () => Results.Redirect("/swagger"));
+}
 
 app.Run();
