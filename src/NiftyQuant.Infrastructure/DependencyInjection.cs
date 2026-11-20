@@ -82,6 +82,9 @@ public static class DependencyInjection
         services.AddSingleton<AutonomousTradingService>();
         services.AddSingleton<IAutonomousTradingService>(sp => sp.GetRequiredService<AutonomousTradingService>());
 
+        // Upstox Market Feed WebSocket Background Service
+        services.AddSingleton<MarketFeedService>();
+
         // Backtesting Engine
         services.AddSingleton<IBacktestingEngine, BacktestingEngine>();
 

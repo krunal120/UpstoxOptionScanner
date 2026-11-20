@@ -83,6 +83,9 @@ builder.Services.AddInfrastructure(builder.Configuration);
 // Real-Time SignalR Bridge Service
 builder.Services.AddHostedService<SignalRBridgeService>();
 
+// Upstox Live Market Data Feed WebSocket Streamer
+builder.Services.AddHostedService(sp => sp.GetRequiredService<NiftyQuant.Infrastructure.Services.MarketFeedService>());
+
 // Autonomous Options Trading Service (Auto-Punches CE/PE orders & Auto-Exits on SL/Target/Trailing SL)
 builder.Services.AddHostedService(sp => sp.GetRequiredService<NiftyQuant.Infrastructure.Services.AutonomousTradingService>());
 
