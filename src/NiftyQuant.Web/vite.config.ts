@@ -17,11 +17,27 @@ export default defineConfig(({ mode }) => {
           target: apiTarget,
           changeOrigin: true,
           secure: false,
+          configure: (proxy) => {
+            proxy.on('error', (err: any) => {
+              if (err.code === 'ECONNREFUSED' || err.message?.includes('ECONNREFUSED')) {
+                // Silently wait for backend to finish starting
+                return;
+              }
+              console.warn('[vite-proxy]', err.message);
+            });
+          },
         },
         '/hubs': {
           target: apiTarget,
           ws: true,
           secure: false,
+          configure: (proxy) => {
+            proxy.on('error', (err: any) => {
+              if (err.code === 'ECONNREFUSED' || err.message?.includes('ECONNREFUSED')) {
+                return;
+              }
+            });
+          },
         },
       },
     },
