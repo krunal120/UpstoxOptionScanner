@@ -456,7 +456,7 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
 
         DateTime selectedExpiry = !string.IsNullOrWhiteSpace(_subscriptionManager.CurrentExpiry) && DateTime.TryParse(_subscriptionManager.CurrentExpiry, out var parsedExp)
             ? parsedExp.Date
-            : DateTime.UtcNow.Date.AddDays(3);
+            : new DateTime(2026, 11, 23);
 
         var signal = new StrategySignal
         {
@@ -497,24 +497,26 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
             _totalOrdersPunchedToday++;
             _lastExecutionTime = DateTime.UtcNow;
 
-            _ = Task.Run(async () =>
+            try
             {
-                try
+                var megaBullOrderId = await _megaBullService.PlaceOrderAsync(
+                    result.TradingSymbol,
+                    isCe ? "CE" : "PE",
+                    strike,
+                    signal.SelectedExpiry,
+                    result.Quantity,
+                    "BUY",
+                    ct);
+
+                if (!string.IsNullOrEmpty(megaBullOrderId))
                 {
-                    await _megaBullService.PlaceOrderAsync(
-                        result.TradingSymbol,
-                        isCe ? "CE" : "PE",
-                        strike,
-                        signal.SelectedExpiry,
-                        result.Quantity,
-                        "BUY",
-                        CancellationToken.None);
+                    result.Message += $" | MegaBull Order #{megaBullOrderId} Placed Successfully";
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "[MEGABULL] Failed to mirror test BUY order to MegaBull");
-                }
-            });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[MEGABULL] Failed to mirror test BUY order to MegaBull");
+            }
         }
 
         return result;
