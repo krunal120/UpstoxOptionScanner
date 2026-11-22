@@ -13,12 +13,9 @@ using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Cloud Port Binding (Render, Railway, Fly.io support)
-var port = Environment.GetEnvironmentVariable("PORT");
-if (!string.IsNullOrEmpty(port))
-{
-    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
-}
+// Cloud Port Binding (Render, Railway, Fly.io, Docker support)
+var port = Environment.GetEnvironmentVariable("PORT") ?? "5000";
+builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
 // Configure Serilog
 Log.Logger = new LoggerConfiguration()
@@ -92,9 +89,9 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<NiftyQuant.Infrast
 // Configure Health Checks
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<NiftyQuantDbContext>(
-        name: "sqlserver",
+        name: "database",
         failureStatus: HealthStatus.Unhealthy,
-        tags: new[] { "db", "sql", "ready" });
+        tags: new[] { "db", "ready" });
 
 var app = builder.Build();
 

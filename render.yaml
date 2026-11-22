@@ -1,18 +1,19 @@
 services:
   - type: web
-    name: niftyquant
-    env: docker
-    dockerfilePath: Dockerfile
+    name: niftyquant-scanner
+    runtime: docker
     plan: free
-    region: oregon
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health/ready
     envVars:
-      - key: ASPNETCORE_ENVIRONMENT
-        value: Production
+      - key: DatabaseProvider
+        value: Sqlite
       - key: ConnectionStrings__DefaultConnection
-        sync: false
+        value: Data Source=niftyquant.db
       - key: Upstox__AccessToken
         sync: false
-      - key: Upstox__BaseUrl
-        value: https://api.upstox.com
-      - key: Upstox__WebSocketUrl
-        value: wss://api.upstox.com/v3/feed/market-data-feed
+      - key: MegaBull__ApiKey
+        value: 453afc9b-2766-4e76-9ef2-db1fca69b5bb
+      - key: MegaBull__IsEnabled
+        value: "true"

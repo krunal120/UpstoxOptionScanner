@@ -19,20 +19,51 @@ public static class DependencyInjection
         services.Configure<RiskOptions>(configuration.GetSection(RiskOptions.SectionName));
         services.Configure<MegaBullOptions>(configuration.GetSection(MegaBullOptions.SectionName));
 
-        // Configure SQL Server DbContext
-        var connectionString = configuration.GetConnectionString("DefaultConnection") 
-            ?? "Server=.\\SQLSERVER2022_2;Database=NiftyQuantDb;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true;";
+        // Configure Database DbContext (Dual Provider: SQLite for Cloud/Container or SQL Server for Local)
+        var databaseProvider = configuration["DatabaseProvider"] ?? "SqlServer";
+        var rawConnStr = configuration.GetConnectionString("DefaultConnection");
+
+        var isSqlite = databaseProvider.Equals("Sqlite", StringComparison.OrdinalIgnoreCase) ||
+                       (!string.IsNullOrEmpty(rawConnStr) && (
+                           rawConnStr.Contains(".db", StringComparison.OrdinalIgnoreCase) ||
+                           (rawConnStr.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase) && 
+                            !rawConnStr.Contains("Initial Catalog", StringComparison.OrdinalIgnoreCase) && 
+                            !rawConnStr.Contains("Database=", StringComparison.OrdinalIgnoreCase))
+                       ));
+
+        string connectionString;
+        if (isSqlite)
+        {
+            connectionString = (!string.IsNullOrEmpty(rawConnStr) && (rawConnStr.Contains(".db", StringComparison.OrdinalIgnoreCase) || rawConnStr.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase)))
+                ? rawConnStr
+                : "Data Source=niftyquant.db";
+        }
+        else
+        {
+            connectionString = rawConnStr 
+                ?? "Server=.\\SQLSERVER2022_2;Database=NiftyQuantDb;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true;";
+        }
 
         services.AddDbContext<NiftyQuantDbContext>(options =>
         {
-            options.UseSqlServer(connectionString, sqlOptions =>
+            if (isSqlite)
             {
-                sqlOptions.MigrationsAssembly(typeof(NiftyQuantDbContext).Assembly.FullName);
-                sqlOptions.EnableRetryOnFailure(
-                    maxRetryCount: 3,
-                    maxRetryDelay: TimeSpan.FromSeconds(5),
-                    errorNumbersToAdd: null);
-            });
+                options.UseSqlite(connectionString, sqliteOptions =>
+                {
+                    sqliteOptions.MigrationsAssembly(typeof(NiftyQuantDbContext).Assembly.FullName);
+                });
+            }
+            else
+            {
+                options.UseSqlServer(connectionString, sqlOptions =>
+                {
+                    sqlOptions.MigrationsAssembly(typeof(NiftyQuantDbContext).Assembly.FullName);
+                    sqlOptions.EnableRetryOnFailure(
+                        maxRetryCount: 3,
+                        maxRetryDelay: TimeSpan.FromSeconds(5),
+                        errorNumbersToAdd: null);
+                });
+            }
         });
 
         // Upstox HTTP Client with Authentication Handler and Resilience

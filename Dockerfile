@@ -29,6 +29,8 @@ WORKDIR /app
 COPY --from=build /app/publish .
 COPY --from=web-build /app/dist ./wwwroot
 
+ENV DatabaseProvider="Sqlite"
+ENV ConnectionStrings__DefaultConnection="Data Source=niftyquant.db"
 ENV ASPNETCORE_URLS="http://+:5000"
 EXPOSE 5000
 
