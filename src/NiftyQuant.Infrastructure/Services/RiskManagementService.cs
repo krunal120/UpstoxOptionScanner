@@ -243,7 +243,15 @@ public class RiskManagementService : IRiskManagementService
 
         decimal totalPnLToday = realizedPnLToday + unrealizedPnL;
         decimal dailyLossLimit = account.DailyLossLimit;
-        decimal dailyLossRemaining = Math.Max(0m, dailyLossLimit + totalPnLToday); // e.g. 750 + (-200) = 550 remaining
+        decimal dailyLossRemaining = Math.Max(0m, dailyLossLimit + totalPnLToday);
+
+        // Auto-unlock account if date rolled over to a new trading session
+        if (account.IsTradingLockedForDay && account.UpdatedAtUtc < utcTodayStart)
+        {
+            account.IsTradingLockedForDay = false;
+            account.UpdatedAtUtc = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+        }
 
         // 4. Circuit Breaker Conditions
         bool isTripped = false;
@@ -403,6 +411,19 @@ public class RiskManagementService : IRiskManagementService
             await db.SaveChangesAsync(ct);
             _logger.LogInformation("Initialized Default Paper Account: Capital=₹{Capital}, DailyLossLimit=₹{LossLimit}, TradeRisk=₹{TradeRisk}",
                 initialCap, dailyLoss, tradeRisk);
+        }
+        else
+        {
+            decimal initialCap = _riskOptions.InitialCapital > 0m ? _riskOptions.InitialCapital : 50000m;
+            decimal dailyLoss = Math.Round(initialCap * (_riskOptions.MaxDailyLossPercent / 100m), 2);
+            decimal tradeRisk = Math.Round(initialCap * (_riskOptions.RiskPerTradePercent / 100m), 2);
+
+            if (account.DailyLossLimit != dailyLoss || account.MaxRiskPerTrade != tradeRisk)
+            {
+                account.DailyLossLimit = dailyLoss;
+                account.MaxRiskPerTrade = tradeRisk;
+                await db.SaveChangesAsync(ct);
+            }
         }
 
         return account;
