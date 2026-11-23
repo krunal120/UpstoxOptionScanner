@@ -37,6 +37,7 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
     private DateTime? _lastExecutionTime;
     private int _totalOrdersPunchedToday = 0;
     private int _totalOrdersExitedToday = 0;
+    private readonly SemaphoreSlim _orderExecutionLock = new(1, 1);
 
     public bool IsEnabled { get; set; } = true;
     public string ExecutionMode { get; set; } = "Paper";
@@ -176,6 +177,8 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
             return;
         }
 
+        // Sequential execution lock: prevent concurrent tick executions or race conditions between exits and entries
+        await _orderExecutionLock.WaitAsync();
         try
         {
             // Check open positions to manage concurrent trades and reverse signals
@@ -188,9 +191,37 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
                                   (isBuyPe && pos.OptionType == OptionType.CE);
                 if (isOpposite)
                 {
-                    _logger.LogInformation("[AUTO-TRADER] Signal reversal detected. Closing opposite position {Symbol} before entering {Direction}...",
-                        pos.TradingSymbol, signal.Direction);
-                    await _paperEngine.ClosePositionAsync(pos.Id, "SignalReversalExit", pos.CurrentLtp);
+                    var holdDuration = DateTime.UtcNow - pos.OpenedAtUtc;
+                    if (holdDuration < TimeSpan.FromMinutes(3))
+                    {
+                        _logger.LogInformation("[AUTO-TRADER ANTI-WHIPSAW] Signal reversal detected ({PosType} -> {SignalDir}), but position was opened only {Seconds:F0}s ago (< 180s). Holding position to protect against churn.",
+                            pos.OptionType, signal.Direction, holdDuration.TotalSeconds);
+                        return;
+                    }
+
+                    _logger.LogInformation("[AUTO-TRADER] Signal reversal detected after {Mins:F1} mins. Closing opposite position {Symbol} before entering {Direction}...",
+                        holdDuration.TotalMinutes, pos.TradingSymbol, signal.Direction);
+
+                    var closeResult = await _paperEngine.ClosePositionAsync(pos.Id, "SignalReversalExit", pos.CurrentLtp);
+                    if (closeResult.IsSuccess)
+                    {
+                        // Synchronously mirror exit to MegaBull so the old position is confirmed closed before opening a new one
+                        try
+                        {
+                            var mbExitId = await _megaBullService.ClosePositionAsync(
+                                pos.TradingSymbol ?? string.Empty,
+                                pos.OptionType.ToString(),
+                                pos.StrikePrice,
+                                pos.ExpiryDate,
+                                pos.Quantity);
+                            _logger.LogInformation("[MEGABULL] Reversal exit order mirrored to MegaBull: OrderId={OrderId} for {Symbol}",
+                                mbExitId, pos.TradingSymbol);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "[MEGABULL] Failed to mirror reversal exit to MegaBull for {Symbol}", pos.TradingSymbol);
+                        }
+                    }
                 }
             }
 
@@ -223,24 +254,24 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
                 _logger.LogInformation("[AUTO-TRADER ORDER FILLED] Successfully punched BUY {Symbol} (Qty: {Qty}) @ ₹{Price:F2} | Order ID: {OrderId} | SL: ₹{SL:F2} | Tgt: ₹{Tgt:F2}",
                     execResult.TradingSymbol, execResult.Quantity, execResult.ExecutedPrice, execResult.OrderId, execResult.StopLossPrice, execResult.TargetPrice);
 
-                // Mirror order to MegaBull external paper trading platform
-                _ = Task.Run(async () =>
+                // Synchronously mirror BUY order to MegaBull external paper trading platform
+                try
                 {
-                    try
-                    {
-                        await _megaBullService.PlaceOrderAsync(
-                            execResult.TradingSymbol,
-                            signal.SelectedOptionType.ToString(),
-                            signal.SelectedStrike,
-                            signal.SelectedExpiry,
-                            execResult.Quantity,
-                            "BUY");
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "[MEGABULL] Failed to mirror BUY order to MegaBull");
-                    }
-                });
+                    var mbOrderId = await _megaBullService.PlaceOrderAsync(
+                        execResult.TradingSymbol,
+                        signal.SelectedOptionType.ToString(),
+                        signal.SelectedStrike,
+                        signal.SelectedExpiry,
+                        execResult.Quantity,
+                        "BUY");
+
+                    _logger.LogInformation("[MEGABULL] Synced BUY order #{OrderId} for {Symbol} (Qty: {Qty})",
+                        mbOrderId, execResult.TradingSymbol, execResult.Quantity);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[MEGABULL] Failed to mirror BUY order to MegaBull for {Symbol}", execResult.TradingSymbol);
+                }
             }
             else
             {
@@ -250,6 +281,10 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error auto-punching order for signal {SignalId}", signal.Id);
+        }
+        finally
+        {
+            _orderExecutionLock.Release();
         }
     }
 
@@ -495,31 +530,35 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
         return allCandles.Values.OrderBy(c => c.CandleTimeUtc).ToList();
     }
 
-    private Task HandlePositionClosedAsync(PaperTrade trade)
+    private async Task HandlePositionClosedAsync(PaperTrade trade)
     {
         _totalOrdersExitedToday++;
         _logger.LogInformation("[AUTO-TRADER POSITION CLOSED] {Symbol} ({Qty} shares) exited @ ₹{Exit:F2} (Entry: ₹{Entry:F2}) | Gross: ₹{Gross:F2} | Charges: ₹{Charges:F2} | Net PnL: ₹{Net:F2} ({Return:F1}%) | Exit Reason: {Reason} | Duration: {Mins} mins",
             trade.TradingSymbol, trade.Quantity, trade.ExitPrice, trade.EntryPrice, trade.GrossPnL, trade.TotalCharges, trade.NetPnL, trade.ReturnPercent, trade.ExitReason, trade.DurationMinutes);
 
-        // Mirror exit order to MegaBull
-        _ = Task.Run(async () =>
+        // If this exit was already mirrored synchronously during SignalReversalExit, avoid duplicate sell order to MegaBull
+        if (trade.ExitReason == "SignalReversalExit")
         {
-            try
-            {
-                await _megaBullService.ClosePositionAsync(
-                    trade.TradingSymbol ?? string.Empty,
-                    trade.OptionType.ToString(),
-                    trade.StrikePrice,
-                    trade.ExpiryDate,
-                    trade.Quantity);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "[MEGABULL] Failed to mirror exit order to MegaBull");
-            }
-        });
+            return;
+        }
 
-        return Task.CompletedTask;
+        // Mirror exit order to MegaBull synchronously
+        try
+        {
+            var mbExitId = await _megaBullService.ClosePositionAsync(
+                trade.TradingSymbol ?? string.Empty,
+                trade.OptionType.ToString(),
+                trade.StrikePrice,
+                trade.ExpiryDate,
+                trade.Quantity);
+
+            _logger.LogInformation("[MEGABULL] Synced EXIT/SELL order #{OrderId} for {Symbol}",
+                mbExitId, trade.TradingSymbol);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[MEGABULL] Failed to mirror exit order to MegaBull for {Symbol}", trade.TradingSymbol);
+        }
     }
 
     private async Task CheckIntradaySquareOffAsync(DateTime istNow, CancellationToken ct)
@@ -603,9 +642,9 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
             StopLossPremium = sl,
             Target1Premium = t1,
             Target2Premium = t2,
-            RecommendedQuantity = 75,
-            LotSize = 75,
-            RiskAmount = (premium - sl) * 75,
+            RecommendedQuantity = 65,
+            LotSize = 65,
+            RiskAmount = (premium - sl) * 65,
             RewardToRiskRatio = 2.0m,
             ConfigurationVersion = "1.0",
             IsExecuted = false,

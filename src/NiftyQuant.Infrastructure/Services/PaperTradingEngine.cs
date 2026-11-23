@@ -102,7 +102,7 @@ public class PaperTradingEngine : IPaperTradingEngine
 
         // 3. Create and Save PaperOrder
         string tradingSymbol = !string.IsNullOrEmpty(signal.SelectedInstrumentKey) && signal.SelectedStrike > 0
-            ? $"NIFTY {signal.SelectedStrike:0} {signal.SelectedOptionType}"
+            ? $"NIFTY {signal.SelectedExpiry:dd MMM} {signal.SelectedStrike:0} {signal.SelectedOptionType}".ToUpperInvariant()
             : (signal.Direction.ToString().Contains("Ce") ? "NIFTY CE" : "NIFTY PE");
 
         var order = new PaperOrder
@@ -186,10 +186,15 @@ public class PaperTradingEngine : IPaperTradingEngine
             OrderId = order.Id,
             PositionId = position.Id,
             InstrumentKey = order.InstrumentKey,
+            TradingSymbol = order.TradingSymbol,
             Side = PaperOrderSide.Buy,
+            OptionType = signal.SelectedOptionType,
+            StrikePrice = signal.SelectedStrike,
             Quantity = quantity,
             OrderedPrice = signal.EntryPremium,
             ExecutedPrice = executedPrice,
+            StopLossPrice = position.StopLossPrice,
+            TargetPrice = position.TargetPrice,
             Slippage = slippage,
             Charges = charges,
             Status = PaperOrderStatus.Filled,
@@ -244,7 +249,7 @@ public class PaperTradingEngine : IPaperTradingEngine
         {
             Id = Guid.NewGuid(),
             InstrumentKey = position.InstrumentKey,
-            TradingSymbol = position.TradingSymbol,
+            TradingSymbol = position.TradingSymbol ?? string.Empty,
             Side = PaperOrderSide.Sell,
             OptionType = position.OptionType,
             StrikePrice = position.StrikePrice,
@@ -264,7 +269,7 @@ public class PaperTradingEngine : IPaperTradingEngine
         {
             Id = Guid.NewGuid(),
             InstrumentKey = position.InstrumentKey,
-            TradingSymbol = position.TradingSymbol,
+            TradingSymbol = position.TradingSymbol ?? string.Empty,
             OptionType = position.OptionType,
             StrikePrice = position.StrikePrice,
             ExpiryDate = position.ExpiryDate,
@@ -308,6 +313,7 @@ public class PaperTradingEngine : IPaperTradingEngine
             TradeId = trade.Id,
             PositionId = position.Id,
             InstrumentKey = position.InstrumentKey,
+            TradingSymbol = position.TradingSymbol ?? string.Empty,
             EntryPrice = position.AverageBuyPrice,
             ExitPrice = actualExitPrice,
             Quantity = position.Quantity,

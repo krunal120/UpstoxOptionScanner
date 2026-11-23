@@ -389,4 +389,36 @@ public class PaperTradingEngineTests : IDisposable
         summary.ProfitFactor.Should().BeGreaterThan(3.0m);
         summary.Expectancy.Should().Be(Math.Round(2320m / 3m, 2));
     }
+
+    [Fact]
+    public async Task ExecuteSignalAsync_PopulatesCompleteOrderExecutionResultWithCanonicalSymbol()
+    {
+        var signal = new StrategySignal
+        {
+            Id = Guid.NewGuid(),
+            Direction = SignalDirection.BuyCe,
+            SelectedInstrumentKey = "NSE_FO|64473",
+            SelectedStrike = 25500m,
+            SelectedOptionType = OptionType.CE,
+            SelectedExpiry = new DateTime(2026, 11, 23),
+            EntryPremium = 60.0m,
+            StopLossPremium = 30.0m,
+            Target1Premium = 120.0m,
+            RecommendedQuantity = 65,
+            Confidence = 80m
+        };
+
+        _riskServiceMock.Setup(r => r.ValidatePreTradeAsync(It.IsAny<StrategySignal>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PreTradeRiskValidationResult { IsApproved = true, AllocatedQuantity = 65 });
+
+        var result = await _paperEngine.ExecuteSignalAsync(signal, simulateSlippage: false);
+
+        result.IsSuccess.Should().BeTrue();
+        result.TradingSymbol.Should().Be("NIFTY 23 NOV 25500 CE");
+        result.OptionType.Should().Be(OptionType.CE);
+        result.StrikePrice.Should().Be(25500m);
+        result.StopLossPrice.Should().Be(30.0m);
+        result.TargetPrice.Should().Be(120.0m);
+        result.Quantity.Should().Be(65);
+    }
 }

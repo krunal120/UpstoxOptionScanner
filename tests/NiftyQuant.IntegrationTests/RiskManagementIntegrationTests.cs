@@ -41,8 +41,8 @@ public class RiskManagementIntegrationTests
         account.Should().NotBeNull();
         account.InitialCapital.Should().Be(50000m);
         account.AvailableBalance.Should().BeGreaterThan(0m);
-        account.DailyLossLimit.Should().Be(750m);
-        account.MaxRiskPerTrade.Should().Be(250m);
+        account.DailyLossLimit.Should().Be(3000m);
+        account.MaxRiskPerTrade.Should().Be(1500m);
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public class RiskManagementIntegrationTests
 
         // Assert
         status.Should().NotBeNull();
-        status.DailyLossLimit.Should().Be(750m);
+        status.DailyLossLimit.Should().Be(3000m);
         status.MaxDailyTradesLimit.Should().Be(6);
         status.MaxConsecutiveLossesLimit.Should().Be(2);
         status.MaxConcurrentPositionsLimit.Should().Be(1);

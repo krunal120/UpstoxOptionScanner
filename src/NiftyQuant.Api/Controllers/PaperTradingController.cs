@@ -12,17 +12,20 @@ public class PaperTradingController : ControllerBase
     private readonly IPaperTradingEngine _paperEngine;
     private readonly IStrategyEngine _strategyEngine;
     private readonly IAutonomousTradingService _autoTradingService;
+    private readonly IMegaBullService _megaBullService;
     private readonly ILogger<PaperTradingController> _logger;
 
     public PaperTradingController(
         IPaperTradingEngine paperEngine,
         IStrategyEngine strategyEngine,
         IAutonomousTradingService autoTradingService,
+        IMegaBullService megaBullService,
         ILogger<PaperTradingController> logger)
     {
         _paperEngine = paperEngine;
         _strategyEngine = strategyEngine;
         _autoTradingService = autoTradingService;
+        _megaBullService = megaBullService;
         _logger = logger;
     }
 
@@ -148,5 +151,34 @@ public class PaperTradingController : ControllerBase
     {
         var summary = await _paperEngine.GetPortfolioSummaryAsync(ct);
         return Ok(summary);
+    }
+
+    [HttpPost("megabull/place-order")]
+    public async Task<IActionResult> MegaBullPlaceOrder(
+        [FromQuery] string tradingSymbol,
+        [FromQuery] string optionType,
+        [FromQuery] decimal strikePrice,
+        [FromQuery] string? expiry = null,
+        [FromQuery] int quantity = 65,
+        [FromQuery] string side = "BUY",
+        CancellationToken ct = default)
+    {
+        var expDate = DateTime.TryParse(expiry, out var d) ? d : DateTime.UtcNow.Date;
+        var orderId = await _megaBullService.PlaceOrderAsync(tradingSymbol, optionType, strikePrice, expDate, quantity, side, ct);
+        return Ok(new { success = !string.IsNullOrEmpty(orderId), orderId, tradingSymbol, side, quantity });
+    }
+
+    [HttpPost("megabull/square-off")]
+    public async Task<IActionResult> MegaBullSquareOff(
+        [FromQuery] string tradingSymbol,
+        [FromQuery] string optionType,
+        [FromQuery] decimal strikePrice,
+        [FromQuery] string? expiry = null,
+        [FromQuery] int quantity = 65,
+        CancellationToken ct = default)
+    {
+        var expDate = DateTime.TryParse(expiry, out var d) ? d : DateTime.UtcNow.Date;
+        var orderId = await _megaBullService.ClosePositionAsync(tradingSymbol, optionType, strikePrice, expDate, quantity, ct);
+        return Ok(new { success = !string.IsNullOrEmpty(orderId), orderId, message = "MegaBull square-off dispatched." });
     }
 }

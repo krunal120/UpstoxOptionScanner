@@ -112,22 +112,33 @@ public class MegaBullService : IMegaBullService
 
     private string? ResolveInstrumentToken(string tradingSymbol, string optionType, decimal strikePrice, DateTime expiryDate)
     {
-        // 1. Direct symbol match
-        if (_symbolToToken.TryGetValue(tradingSymbol, out var token)) return token;
-
-        var cleanSymbol = tradingSymbol.Replace(" ", "").Replace("-", "").ToUpperInvariant();
-        if (_symbolToToken.TryGetValue(cleanSymbol, out token)) return token;
-
-        // 2. Structured key match (Strike_Type_Date)
-        var dateKey = $"{expiryDate:ddMMM}_{strikePrice:F0}_{optionType.ToUpperInvariant()}";
-        if (_keyToToken.TryGetValue(dateKey, out token)) return token;
-
-        var altDateKey = $"{expiryDate:yyyyMMdd}_{strikePrice:F0}_{optionType.ToUpperInvariant()}";
-        if (_keyToToken.TryGetValue(altDateKey, out token)) return token;
-
-        // 3. Heuristic search in cached dictionary
+        var opt = optionType.Trim().ToUpperInvariant();
         var strikeStr = strikePrice.ToString("F0");
-        var opt = optionType.ToUpperInvariant();
+
+        // 1. Direct symbol match
+        if (!string.IsNullOrWhiteSpace(tradingSymbol))
+        {
+            if (_symbolToToken.TryGetValue(tradingSymbol, out var token)) return token;
+
+            var cleanSymbol = tradingSymbol.Replace(" ", "").Replace("-", "").ToUpperInvariant();
+            if (_symbolToToken.TryGetValue(cleanSymbol, out token)) return token;
+        }
+
+        // 2. Structured key match (e.g. "23NOV_25500_CE", "23Nov_25500_CE")
+        var dateKey = $"{expiryDate:ddMMM}_{strikeStr}_{opt}";
+        if (_keyToToken.TryGetValue(dateKey, out var t1)) return t1;
+
+        var altDateKey = $"{expiryDate:yyyyMMdd}_{strikeStr}_{opt}";
+        if (_keyToToken.TryGetValue(altDateKey, out var t2)) return t2;
+
+        // 3. Exact InstrumentName format: "NIFTY 23 NOV 25500 CE"
+        var formattedName = $"NIFTY {expiryDate:dd MMM} {strikeStr} {opt}".ToUpperInvariant();
+        if (_symbolToToken.TryGetValue(formattedName, out var t3)) return t3;
+
+        var formattedNameTrimmedDay = $"NIFTY {expiryDate:d MMM} {strikeStr} {opt}".ToUpperInvariant();
+        if (_symbolToToken.TryGetValue(formattedNameTrimmedDay, out var t4)) return t4;
+
+        // 4. Heuristic search in cached dictionary
         var monthStr = expiryDate.ToString("MMM").ToUpperInvariant();
         var dayStr = expiryDate.Day.ToString("00");
 
@@ -138,7 +149,13 @@ public class MegaBullService : IMegaBullService
             kvp.Key.Contains(monthStr) &&
             (kvp.Key.Contains(dayStr) || kvp.Key.Contains(expiryDate.Day.ToString())));
 
-        return match.Value;
+        if (!string.IsNullOrEmpty(match.Value))
+        {
+            _logger.LogInformation("[MEGABULL] Heuristically matched token {Token} for symbol key {Key}", match.Value, match.Key);
+            return match.Value;
+        }
+
+        return null;
     }
 
     private async Task EnsureInstrumentsLoadedAsync(CancellationToken ct)
@@ -151,15 +168,27 @@ public class MegaBullService : IMegaBullService
             if (_isLoaded) return;
 
             string csvContent = string.Empty;
-            var localCsv = Path.Combine(AppContext.BaseDirectory, "megabull_instruments.csv");
-            if (File.Exists(localCsv))
+            var pathsToTry = new[]
             {
-                csvContent = await File.ReadAllTextAsync(localCsv, ct);
+                Path.Combine(AppContext.BaseDirectory, "megabull_instruments.csv"),
+                Path.Combine(Directory.GetCurrentDirectory(), "megabull_instruments.csv"),
+                Path.Combine(Directory.GetCurrentDirectory(), "src", "NiftyQuant.Api", "megabull_instruments.csv")
+            };
+
+            foreach (var path in pathsToTry)
+            {
+                if (File.Exists(path))
+                {
+                    _logger.LogInformation("[MEGABULL] Loading instruments from local CSV: {Path}", path);
+                    csvContent = await File.ReadAllTextAsync(path, ct);
+                    break;
+                }
             }
-            else
+
+            if (string.IsNullOrWhiteSpace(csvContent))
             {
-                // Download from MegaBull S3
-                using var client = new HttpClient();
+                _logger.LogInformation("[MEGABULL] Local instruments CSV not found. Downloading from S3...");
+                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
                 csvContent = await client.GetStringAsync("https://megabull-open.s3.us-east-1.amazonaws.com/Instrument-default.csv", ct);
             }
 
@@ -177,6 +206,8 @@ public class MegaBullService : IMegaBullService
 
                 _symbolToToken[tradingSymbol] = token;
                 _symbolToToken[instrumentName] = token;
+                _symbolToToken[tradingSymbol.Replace(" ", "")] = token;
+                _symbolToToken[instrumentName.Replace(" ", "")] = token;
 
                 // E.g. "NIFTY 23 NOV 25750 CE"
                 var nameParts = instrumentName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
