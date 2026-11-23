@@ -4,6 +4,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NiftyQuant.Application.Common.Interfaces;
+using NiftyQuant.Application.Common.Models.Indicators;
 using NiftyQuant.Application.Common.Models.Options;
 using NiftyQuant.Application.Common.Models.PaperTrading;
 using NiftyQuant.Application.Common.Models.Strategy;
@@ -329,9 +330,9 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
 
     private async Task<StrategyAnalysisContext?> BuildStrategyAnalysisContextAsync(string underlyingKey, CancellationToken ct)
     {
-        var candles1m = _candleEngine.GetRecentCandles(underlyingKey, CandleTimeframe.OneMinute, 100);
-        var candles5m = _candleEngine.GetRecentCandles(underlyingKey, CandleTimeframe.FiveMinute, 100);
-        var candles15m = _candleEngine.GetRecentCandles(underlyingKey, CandleTimeframe.FifteenMinute, 100);
+        var candles1m = await GetEffectiveCandlesAsync(underlyingKey, CandleTimeframe.OneMinute, 3, ct);
+        var candles5m = await GetEffectiveCandlesAsync(underlyingKey, CandleTimeframe.FiveMinute, 3, ct);
+        var candles15m = await GetEffectiveCandlesAsync(underlyingKey, CandleTimeframe.FifteenMinute, 5, ct);
 
         if (candles1m.Count == 0 && candles5m.Count == 0)
         {
@@ -346,28 +347,152 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
             ? _optionsIntelligence.AnalyzeSnapshot(snapshot)
             : new OptionsIntelligenceReportDto();
 
-        var mtfState = _indicatorService.CalculateMultiTimeframeState(
-            underlyingKey, candles1m, candles5m, candles15m, null);
+        DateTime todayUtc = DateTime.UtcNow.Date;
+        var todayCandles = candles1m.Where(c => c.CandleTimeUtc.Date == todayUtc).ToList();
 
         decimal currentSpot = snapshot?.UnderlyingPrice > 0m
             ? snapshot.UnderlyingPrice
             : (candles1m.Count > 0 ? candles1m[^1].Close : 25500m);
 
-        DateTime todayUtc = DateTime.UtcNow.Date;
-        var todayCandles = candles1m.Where(c => c.CandleTimeUtc.Date == todayUtc).ToList();
         decimal intradayHigh = todayCandles.Count > 0 ? todayCandles.Max(c => c.High) : currentSpot;
         decimal intradayLow = todayCandles.Count > 0 ? todayCandles.Min(c => c.Low) : currentSpot;
+
+        // Calculate Previous Day High, Low & Close for CPR and Breakout evaluation
+        var prevDayCandles = candles15m.Where(c => c.CandleTimeUtc.Date < todayUtc).ToList();
+        var lastPrevDate = prevDayCandles.Count > 0 ? prevDayCandles.Max(c => c.CandleTimeUtc.Date) : DateTime.MinValue;
+        var lastDayCandles = prevDayCandles.Where(c => c.CandleTimeUtc.Date == lastPrevDate).ToList();
+        decimal prevDayHigh = lastDayCandles.Count > 0 ? lastDayCandles.Max(c => c.High) : 0m;
+        decimal prevDayLow = lastDayCandles.Count > 0 ? lastDayCandles.Min(c => c.Low) : 0m;
+        decimal prevDayClose = lastDayCandles.Count > 0 ? lastDayCandles.Last().Close : 0m;
+
+        CprResult? dailyCpr = null;
+        if (lastDayCandles.Count > 0 && prevDayHigh > 0m && prevDayLow > 0m)
+        {
+            dailyCpr = _indicatorService.CalculateDailyCpr(prevDayHigh, prevDayLow, prevDayClose);
+        }
+
+        var mtfState = _indicatorService.CalculateMultiTimeframeState(
+            underlyingKey, candles1m, candles5m, candles15m, dailyCpr);
+
+        decimal? indiaVix = null;
+        try
+        {
+            var vixQuote = await _upstoxClient.GetMarketQuoteAsync("NSE_INDEX|India VIX", ct);
+            if (vixQuote != null && vixQuote.LastPrice > 0m)
+            {
+                indiaVix = vixQuote.LastPrice;
+            }
+        }
+        catch
+        {
+            // Fallback
+        }
 
         return new StrategyAnalysisContext
         {
             UnderlyingKey = underlyingKey,
             CurrentPrice = currentSpot,
+            IndiaVix = indiaVix,
             MultiTimeframeState = mtfState,
             OptionsReport = optionsReport,
             IntradayHigh = intradayHigh,
             IntradayLow = intradayLow,
+            PreviousDayHigh = prevDayHigh,
+            PreviousDayLow = prevDayLow,
+            PreviousDayClose = prevDayClose,
             EvaluationTimeUtc = DateTime.UtcNow
         };
+    }
+
+    private async Task<IReadOnlyList<MarketCandle>> GetEffectiveCandlesAsync(
+        string instrumentKey,
+        CandleTimeframe timeframe,
+        int days,
+        CancellationToken ct)
+    {
+        var liveCandles = _candleEngine.GetRecentCandles(instrumentKey, timeframe, 150);
+        if (liveCandles.Count >= 75)
+        {
+            return liveCandles;
+        }
+
+        var (unit, interval) = timeframe switch
+        {
+            CandleTimeframe.OneMinute => ("minutes", 1),
+            CandleTimeframe.FiveMinute => ("minutes", 5),
+            CandleTimeframe.FifteenMinute => ("minutes", 15),
+            _ => ("minutes", 1)
+        };
+
+        var now = DateTime.Now;
+        var toDate = now.ToString("yyyy-MM-dd");
+        var fromDate = now.AddDays(-days).ToString("yyyy-MM-dd");
+
+        var allCandles = new Dictionary<DateTime, MarketCandle>();
+
+        // 1. Completed historical candles from previous trading sessions
+        try
+        {
+            var historical = await _upstoxClient.GetHistoricalCandlesAsync(
+                instrumentKey, unit, interval, toDate, fromDate, ct);
+            foreach (var c in historical)
+            {
+                allCandles[c.Timestamp] = new MarketCandle
+                {
+                    InstrumentKey = instrumentKey,
+                    Timeframe = timeframe,
+                    CandleTimeUtc = c.Timestamp,
+                    Open = c.Open,
+                    High = c.High,
+                    Low = c.Low,
+                    Close = c.Close,
+                    Volume = c.Volume,
+                    OpenInterest = c.OpenInterest,
+                    IsFinalized = true,
+                    CreatedAtUtc = DateTime.UtcNow
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to fetch historical candles for {Key}", instrumentKey);
+        }
+
+        // 2. Today's live intraday candles from Upstox Intraday Candle API
+        try
+        {
+            var intraday = await _upstoxClient.GetIntradayCandlesAsync(
+                instrumentKey, unit, interval, ct);
+            foreach (var c in intraday)
+            {
+                allCandles[c.Timestamp] = new MarketCandle
+                {
+                    InstrumentKey = instrumentKey,
+                    Timeframe = timeframe,
+                    CandleTimeUtc = c.Timestamp,
+                    Open = c.Open,
+                    High = c.High,
+                    Low = c.Low,
+                    Close = c.Close,
+                    Volume = c.Volume,
+                    OpenInterest = c.OpenInterest,
+                    IsFinalized = true,
+                    CreatedAtUtc = DateTime.UtcNow
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to fetch intraday candles for {Key}", instrumentKey);
+        }
+
+        // 3. Overlay any live WebSocket candles
+        foreach (var c in liveCandles)
+        {
+            allCandles[c.CandleTimeUtc] = c;
+        }
+
+        return allCandles.Values.OrderBy(c => c.CandleTimeUtc).ToList();
     }
 
     private Task HandlePositionClosedAsync(PaperTrade trade)

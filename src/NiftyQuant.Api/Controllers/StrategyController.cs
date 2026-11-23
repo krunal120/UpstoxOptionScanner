@@ -194,30 +194,71 @@ public class StrategyController : ControllerBase
         var toDate = now.ToString("yyyy-MM-dd");
         var fromDate = now.AddDays(-days).ToString("yyyy-MM-dd");
 
+        var allCandles = new Dictionary<DateTime, MarketCandle>();
+
+        // 1. Fetch historical completed candles
         try
         {
             var historical = await _upstoxClient.GetHistoricalCandlesAsync(
                 instrumentKey, unit, interval, toDate, fromDate, ct);
 
-            return historical.Select(c => new MarketCandle
+            foreach (var c in historical)
             {
-                InstrumentKey = instrumentKey,
-                Timeframe = timeframe,
-                CandleTimeUtc = c.Timestamp,
-                Open = c.Open,
-                High = c.High,
-                Low = c.Low,
-                Close = c.Close,
-                Volume = c.Volume,
-                OpenInterest = c.OpenInterest,
-                IsFinalized = true
-            }).ToList();
+                allCandles[c.Timestamp] = new MarketCandle
+                {
+                    InstrumentKey = instrumentKey,
+                    Timeframe = timeframe,
+                    CandleTimeUtc = c.Timestamp,
+                    Open = c.Open,
+                    High = c.High,
+                    Low = c.Low,
+                    Close = c.Close,
+                    Volume = c.Volume,
+                    OpenInterest = c.OpenInterest,
+                    IsFinalized = true
+                };
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to fetch historical candles for {InstrumentKey}", instrumentKey);
-            return liveCandles;
+            _logger.LogWarning(ex, "Failed to fetch historical candles for {InstrumentKey}", instrumentKey);
         }
+
+        // 2. Fetch today's live intraday candles
+        try
+        {
+            var intraday = await _upstoxClient.GetIntradayCandlesAsync(
+                instrumentKey, unit, interval, ct);
+
+            foreach (var c in intraday)
+            {
+                allCandles[c.Timestamp] = new MarketCandle
+                {
+                    InstrumentKey = instrumentKey,
+                    Timeframe = timeframe,
+                    CandleTimeUtc = c.Timestamp,
+                    Open = c.Open,
+                    High = c.High,
+                    Low = c.Low,
+                    Close = c.Close,
+                    Volume = c.Volume,
+                    OpenInterest = c.OpenInterest,
+                    IsFinalized = true
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch intraday candles for {InstrumentKey}", instrumentKey);
+        }
+
+        // 3. Overlay live WebSocket candles
+        foreach (var c in liveCandles)
+        {
+            allCandles[c.CandleTimeUtc] = c;
+        }
+
+        return allCandles.Values.OrderBy(c => c.CandleTimeUtc).ToList();
     }
 
     private async Task<(CprResult? Cpr, decimal High, decimal Low, decimal Close)> GetDailyLevelsAsync(
