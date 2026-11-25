@@ -125,13 +125,18 @@ public class PaperTradingEngine : IPaperTradingEngine
         };
 
         // 4. Create and Save PaperPosition
-        decimal technicalRisk = (signal.StopLossPremium > 0m && signal.StopLossPremium < executedPrice)
+        bool isSlValid = signal.StopLossPremium > 0m &&
+                         signal.StopLossPremium < executedPrice &&
+                         (executedPrice - signal.StopLossPremium) <= Math.Max(35m, executedPrice * 0.35m) &&
+                         signal.StopLossPremium >= (executedPrice * 0.50m);
+
+        decimal technicalRisk = isSlValid
             ? (executedPrice - signal.StopLossPremium)
-            : Math.Max(15m, executedPrice * 0.15m);
+            : Math.Clamp(executedPrice * 0.15m, 15m, 35m);
 
         decimal boundedRisk = Math.Clamp(technicalRisk, Math.Max(10m, executedPrice * 0.10m), Math.Max(30m, executedPrice * 0.25m));
 
-        decimal initialStopLoss = (signal.StopLossPremium > 0m && signal.StopLossPremium < executedPrice)
+        decimal initialStopLoss = isSlValid
             ? signal.StopLossPremium
             : Math.Round(executedPrice - boundedRisk, 2);
 
