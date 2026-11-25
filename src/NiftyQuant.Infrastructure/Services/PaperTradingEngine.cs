@@ -125,9 +125,19 @@ public class PaperTradingEngine : IPaperTradingEngine
         };
 
         // 4. Create and Save PaperPosition
-        decimal target1 = signal.Target1Premium > executedPrice
+        decimal technicalRisk = (signal.StopLossPremium > 0m && signal.StopLossPremium < executedPrice)
+            ? (executedPrice - signal.StopLossPremium)
+            : Math.Max(15m, executedPrice * 0.15m);
+
+        decimal boundedRisk = Math.Clamp(technicalRisk, Math.Max(10m, executedPrice * 0.10m), Math.Max(30m, executedPrice * 0.25m));
+
+        decimal initialStopLoss = (signal.StopLossPremium > 0m && signal.StopLossPremium < executedPrice)
+            ? signal.StopLossPremium
+            : Math.Round(executedPrice - boundedRisk, 2);
+
+        decimal target1 = signal.Target1Premium > (executedPrice + 5m)
             ? signal.Target1Premium
-            : Math.Round(executedPrice + ((executedPrice - signal.StopLossPremium) * 2m), 2);
+            : Math.Round(executedPrice + (boundedRisk * 2.0m), 2);
 
         var position = new PaperPosition
         {
@@ -140,9 +150,9 @@ public class PaperTradingEngine : IPaperTradingEngine
             Quantity = quantity,
             AverageBuyPrice = executedPrice,
             CurrentLtp = executedPrice,
-            StopLossPrice = signal.StopLossPremium,
+            StopLossPrice = initialStopLoss,
             TargetPrice = target1,
-            TrailingStopLossPrice = signal.StopLossPremium,
+            TrailingStopLossPrice = initialStopLoss,
             MaxLtpReached = executedPrice,
             UnrealizedPnL = 0m,
             IsOpen = true,
@@ -356,6 +366,7 @@ public class PaperTradingEngine : IPaperTradingEngine
         if (currentLtp <= 0m) return;
 
         List<Guid> positionsToCloseSl = new();
+        List<Guid> positionsToCloseTsl = new();
         List<Guid> positionsToCloseTgt = new();
 
         using (var scope = _scopeFactory.CreateScope())
@@ -378,42 +389,106 @@ public class PaperTradingEngine : IPaperTradingEngine
                     pos.MaxLtpReached = currentLtp;
                 }
 
-                // 1. Stop Loss Hit Check
-                if (currentLtp <= pos.StopLossPrice)
+                decimal maxGainPerShare = pos.MaxLtpReached - pos.AverageBuyPrice;
+                decimal maxProfitAmount = Math.Round(maxGainPerShare * pos.Quantity, 2);
+                decimal maxReturnPercent = pos.AverageBuyPrice > 0m
+                    ? Math.Round((maxGainPerShare / pos.AverageBuyPrice) * 100m, 2)
+                    : 0m;
+
+                // 1. Dynamic Multi-Tier Trailing Stop Loss & Profit Securing Engine
+                if (_riskOptions.EnableTrailingStopLoss && maxGainPerShare > 0m)
                 {
-                    _logger.LogWarning("Stop loss hit for {Symbol}! Current=₹{Ltp}, SL=₹{SL}", 
-                        !string.IsNullOrEmpty(pos.TradingSymbol) ? pos.TradingSymbol : instrumentKey, 
-                        currentLtp, pos.StopLossPrice);
-                    positionsToCloseSl.Add(pos.Id);
-                    continue;
+                    decimal proposedSL = pos.StopLossPrice;
+                    decimal initialRisk = pos.AverageBuyPrice - pos.StopLossPrice;
+
+                    // Tier 1: Capital Preservation & Breakeven Lock (+15% return OR +₹1,500 profit OR 1.5R reached)
+                    if (maxProfitAmount >= 1500m || maxReturnPercent >= 15m || (initialRisk > 0m && maxGainPerShare >= (initialRisk * 1.5m)))
+                    {
+                        decimal beLevel = Math.Round(pos.AverageBuyPrice + 1.0m, 2);
+                        if (beLevel > proposedSL)
+                        {
+                            proposedSL = beLevel;
+                        }
+                    }
+
+                    // Tier 2: Lock 40% of Peak Gains (+₹2,500 profit OR +30% return)
+                    if (maxProfitAmount >= 2500m || maxReturnPercent >= 30m)
+                    {
+                        decimal tier2Level = Math.Round(pos.AverageBuyPrice + (maxGainPerShare * 0.40m), 2);
+                        if (tier2Level > proposedSL)
+                        {
+                            proposedSL = tier2Level;
+                        }
+                    }
+
+                    // Tier 3: Lock 60% of Peak Gains (+₹4,000 profit OR +50% return)
+                    if (maxProfitAmount >= 4000m || maxReturnPercent >= 50m)
+                    {
+                        decimal tier3Level = Math.Round(pos.AverageBuyPrice + (maxGainPerShare * 0.60m), 2);
+                        if (tier3Level > proposedSL)
+                        {
+                            proposedSL = tier3Level;
+                        }
+                    }
+
+                    // Tier 4: Super Profit Lock (The 6k+ Case) - Lock 75% of Peak Gains! (+₹5,500+ profit OR +70% return)
+                    if (maxProfitAmount >= 5500m || maxReturnPercent >= 70m)
+                    {
+                        decimal tier4Level = Math.Round(pos.AverageBuyPrice + (maxGainPerShare * 0.75m), 2);
+                        if (tier4Level > proposedSL)
+                        {
+                            proposedSL = tier4Level;
+                        }
+                    }
+
+                    // Tier 5: Chandelier High-Water Mark Trail (Never allow more than 20% giveback once profit >= ₹2,000)
+                    if (maxProfitAmount >= 2000m)
+                    {
+                        decimal chandelierFloor = Math.Round(pos.MaxLtpReached - (maxGainPerShare * 0.20m), 2);
+                        if (chandelierFloor > proposedSL)
+                        {
+                            proposedSL = chandelierFloor;
+                        }
+                    }
+
+                    // Ratchet SL Upwards Only
+                    if (proposedSL > pos.StopLossPrice)
+                    {
+                        _logger.LogInformation("[PROFIT LOCK / TSL] Ratcheted Stop Loss for {Symbol}: Old SL=₹{OldSL:F2} -> New SL=₹{NewSL:F2} (Peak LTP=₹{Peak:F2}, Max Profit=₹{MaxProfit:F2})",
+                            pos.TradingSymbol, pos.StopLossPrice, proposedSL, pos.MaxLtpReached, maxProfitAmount);
+
+                        pos.StopLossPrice = proposedSL;
+                        pos.TrailingStopLossPrice = proposedSL;
+                    }
                 }
 
                 // 2. Target Hit Check
                 if (currentLtp >= pos.TargetPrice)
                 {
-                    _logger.LogInformation("Target hit for {Symbol}! Current=₹{Ltp}, Target=₹{Tgt}", 
+                    _logger.LogInformation("Target hit for {Symbol}! Current=₹{Ltp:F2}, Target=₹{Tgt:F2}", 
                         !string.IsNullOrEmpty(pos.TradingSymbol) ? pos.TradingSymbol : instrumentKey, 
                         currentLtp, pos.TargetPrice);
                     positionsToCloseTgt.Add(pos.Id);
                     continue;
                 }
 
-                // 3. Trailing Stop Loss to Breakeven & Guaranteed Profits
-                if (_riskOptions.EnableTrailingStopLoss)
+                // 3. Stop Loss / Trailing Stop Loss Hit Check
+                if (currentLtp <= pos.StopLossPrice)
                 {
-                    decimal initialRisk = pos.AverageBuyPrice - pos.StopLossPrice;
-                    if (initialRisk > 0m)
+                    if (pos.StopLossPrice > pos.AverageBuyPrice)
                     {
-                        decimal profitDistance = currentLtp - pos.AverageBuyPrice;
-                        // If trade has achieved 1.5R, move stop loss to Breakeven (+ ₹1.0 buffer)
-                        if (profitDistance >= (initialRisk * 1.5m) && pos.StopLossPrice < (pos.AverageBuyPrice + 1.0m))
-                        {
-                            pos.StopLossPrice = pos.AverageBuyPrice + 1.0m;
-                            pos.TrailingStopLossPrice = pos.StopLossPrice;
-                            _logger.LogInformation("Trailing stop loss adjusted to Breakeven for {Symbol}: New SL=₹{SL}", 
-                                pos.TradingSymbol, pos.StopLossPrice);
-                        }
+                        _logger.LogInformation("[TRAILING STOP HIT] Exiting {Symbol} in PROFIT! Current=₹{Ltp:F2}, Locked SL=₹{SL:F2}, Entry=₹{Entry:F2}, Locked Profit=₹{PnL:F2}",
+                            pos.TradingSymbol, currentLtp, pos.StopLossPrice, pos.AverageBuyPrice, pos.UnrealizedPnL);
+                        positionsToCloseTsl.Add(pos.Id);
                     }
+                    else
+                    {
+                        _logger.LogWarning("Stop loss hit for {Symbol}! Current=₹{Ltp:F2}, SL=₹{SL:F2}", 
+                            !string.IsNullOrEmpty(pos.TradingSymbol) ? pos.TradingSymbol : instrumentKey, 
+                            currentLtp, pos.StopLossPrice);
+                        positionsToCloseSl.Add(pos.Id);
+                    }
+                    continue;
                 }
 
                 if (OnPositionUpdated != null)
@@ -425,10 +500,15 @@ public class PaperTradingEngine : IPaperTradingEngine
             await db.SaveChangesAsync(ct);
         }
 
-        // Close positions that hit SL or Target
+        // Close positions that hit SL, TSL or Target
         foreach (var id in positionsToCloseSl)
         {
             await ClosePositionAsync(id, "StopLossHit", currentLtp, ct);
+        }
+
+        foreach (var id in positionsToCloseTsl)
+        {
+            await ClosePositionAsync(id, "TrailingStopHit", currentLtp, ct);
         }
 
         foreach (var id in positionsToCloseTgt)

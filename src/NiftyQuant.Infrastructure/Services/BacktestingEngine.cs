@@ -209,11 +209,11 @@ public class BacktestingEngine : IBacktestingEngine
                     string exitReason = string.Empty;
                     decimal exitPrice = currentPremium;
 
-                    // Check Stop Loss
+                    // Check Stop Loss or Trailing Stop Loss
                     if (worstPremium <= activeTrade.StopLossPrice)
                     {
                         shouldExit = true;
-                        exitReason = "StopLossHit";
+                        exitReason = activeTrade.StopLossPrice > activeTrade.EntryPrice ? "TrailingStopHit" : "StopLossHit";
                         exitPrice = activeTrade.StopLossPrice;
                     }
                     // Check Target Hit
@@ -230,13 +230,52 @@ public class BacktestingEngine : IBacktestingEngine
                         exitReason = "EndOfDaySquareoff";
                         exitPrice = currentPremium;
                     }
-                    // Trailing Stop to Breakeven at 1.5R
-                    else if (request.EnableTrailingStop)
+                    // Dynamic Multi-Tier Trailing Stop Loss & Profit Lock
+                    else if (request.EnableTrailingStop && bestPremium > activeTrade.EntryPrice)
                     {
-                        decimal riskDist = activeTrade.EntryPrice - activeTrade.StopLossPrice;
-                        if (bestPremium >= (activeTrade.EntryPrice + (riskDist * 1.5m)) && activeTrade.StopLossPrice < activeTrade.EntryPrice)
+                        decimal maxGain = bestPremium - activeTrade.EntryPrice;
+                        decimal maxProfit = maxGain * activeTrade.Quantity;
+                        decimal maxRetPct = activeTrade.EntryPrice > 0m ? (maxGain / activeTrade.EntryPrice) * 100m : 0m;
+                        decimal proposedSL = activeTrade.StopLossPrice;
+
+                        // Tier 1: Breakeven (+ ₹1.0 buffer)
+                        if (maxProfit >= 1500m || maxRetPct >= 15m)
                         {
-                            activeTrade.StopLossPrice = activeTrade.EntryPrice + 1.0m; // Breakeven + buffer
+                            decimal be = activeTrade.EntryPrice + 1.0m;
+                            if (be > proposedSL) proposedSL = be;
+                        }
+
+                        // Tier 2: Lock 40% of Peak Gains
+                        if (maxProfit >= 2500m || maxRetPct >= 30m)
+                        {
+                            decimal t2 = activeTrade.EntryPrice + (maxGain * 0.40m);
+                            if (t2 > proposedSL) proposedSL = t2;
+                        }
+
+                        // Tier 3: Lock 60% of Peak Gains
+                        if (maxProfit >= 4000m || maxRetPct >= 50m)
+                        {
+                            decimal t3 = activeTrade.EntryPrice + (maxGain * 0.60m);
+                            if (t3 > proposedSL) proposedSL = t3;
+                        }
+
+                        // Tier 4: Super Profit Lock (75% of Peak Gains)
+                        if (maxProfit >= 5500m || maxRetPct >= 70m)
+                        {
+                            decimal t4 = activeTrade.EntryPrice + (maxGain * 0.75m);
+                            if (t4 > proposedSL) proposedSL = t4;
+                        }
+
+                        // Tier 5: Chandelier Trail (20% giveback max)
+                        if (maxProfit >= 2000m)
+                        {
+                            decimal chan = bestPremium - (maxGain * 0.20m);
+                            if (chan > proposedSL) proposedSL = chan;
+                        }
+
+                        if (proposedSL > activeTrade.StopLossPrice)
+                        {
+                            activeTrade.StopLossPrice = proposedSL;
                         }
                     }
 

@@ -349,14 +349,97 @@ public class PaperTradingEngineTests : IDisposable
         // Act: Price moves to 152 (Profit = 32 > 30 = 1.5R)
         await _paperEngine.UpdatePositionPricesAsync("NSE_FO|NIFTY26NOV24100CE", 152.0m);
 
-        // Assert: Stop Loss trailed to Breakeven + 1.0 = 121.0
+        // Assert: Stop Loss trailed to protect profit (at least Breakeven + buffer)
         using (var scope = _serviceProvider.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<NiftyQuantDbContext>();
             var pos = await db.PaperPositions.FindAsync(posId);
             pos!.IsOpen.Should().BeTrue();
-            pos.StopLossPrice.Should().Be(121.0m);
+            pos.StopLossPrice.Should().BeGreaterThanOrEqualTo(121.0m);
             pos.UnrealizedPnL.Should().Be((152m - 120m) * 65);
+        }
+    }
+
+    [Fact]
+    public async Task UpdatePositionPricesAsync_WhenProfitReaches6K_TrailsStopLossToLock75PercentOfGain()
+    {
+        var posId = Guid.NewGuid();
+        var position = new PaperPosition
+        {
+            Id = posId,
+            InstrumentKey = "NSE_FO|NIFTY26DEC25800CE",
+            OptionType = OptionType.CE,
+            Quantity = 65,
+            AverageBuyPrice = 238.0m,
+            CurrentLtp = 238.0m,
+            StopLossPrice = 208.0m,
+            TargetPrice = 400.0m,
+            IsOpen = true
+        };
+
+        using (var scope = _serviceProvider.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NiftyQuantDbContext>();
+            db.PaperPositions.Add(position);
+            await db.SaveChangesAsync();
+        }
+
+        // Act: Price climbs to 338 (Gain = 100 pts, Total profit = 6500)
+        await _paperEngine.UpdatePositionPricesAsync("NSE_FO|NIFTY26DEC25800CE", 338.0m);
+
+        // Assert: Stop Loss ratcheted to lock >= 75% of gain (at least 238 + 75 = 313.0)
+        using (var scope = _serviceProvider.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NiftyQuantDbContext>();
+            var pos = await db.PaperPositions.FindAsync(posId);
+            pos!.IsOpen.Should().BeTrue();
+            pos.StopLossPrice.Should().BeGreaterThanOrEqualTo(313.0m);
+            pos.MaxLtpReached.Should().Be(338.0m);
+        }
+    }
+
+    [Fact]
+    public async Task UpdatePositionPricesAsync_WhenPriceReversesAfter6KGain_AutoClosesWithTrailingStopHit()
+    {
+        var posId = Guid.NewGuid();
+        var position = new PaperPosition
+        {
+            Id = posId,
+            InstrumentKey = "NSE_FO|NIFTY26DEC25800CE",
+            TradingSymbol = "NIFTY 01 DEC 25800 CE",
+            OptionType = OptionType.CE,
+            Quantity = 65,
+            AverageBuyPrice = 238.0m,
+            CurrentLtp = 238.0m,
+            StopLossPrice = 208.0m,
+            TargetPrice = 400.0m,
+            IsOpen = true
+        };
+
+        using (var scope = _serviceProvider.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NiftyQuantDbContext>();
+            db.PaperPositions.Add(position);
+            await db.SaveChangesAsync();
+        }
+
+        // 1. Price climbs to 338 (locks in SL >= 313)
+        await _paperEngine.UpdatePositionPricesAsync("NSE_FO|NIFTY26DEC25800CE", 338.0m);
+
+        // 2. Price reverses from 338 down to 310 (below locked SL of 313)
+        await _paperEngine.UpdatePositionPricesAsync("NSE_FO|NIFTY26DEC25800CE", 310.0m);
+
+        // Assert: Position is closed with TrailingStopHit and handsome profit
+        using (var scope = _serviceProvider.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NiftyQuantDbContext>();
+            var pos = await db.PaperPositions.FindAsync(posId);
+            pos!.IsOpen.Should().BeFalse();
+
+            var trade = await db.PaperTrades.FirstOrDefaultAsync(t => t.InstrumentKey == "NSE_FO|NIFTY26DEC25800CE");
+            trade.Should().NotBeNull();
+            trade!.ExitReason.Should().Be("TrailingStopHit");
+            trade.NetPnL.Should().BeGreaterThan(4000m); // Locked over ₹4,000 profit!
         }
     }
 
