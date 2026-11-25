@@ -423,7 +423,7 @@ public class PaperTradingEngineTests : IDisposable
             await db.SaveChangesAsync();
         }
 
-        // 1. Price climbs to 338 (locks in SL >= 313)
+        // 1. Price climbs to 338 (locks in SL >= 313 via 75% gain lock & chandelier)
         await _paperEngine.UpdatePositionPricesAsync("NSE_FO|NIFTY26DEC25800CE", 338.0m);
 
         // 2. Price reverses from 338 down to 310 (below locked SL of 313)
@@ -440,6 +440,63 @@ public class PaperTradingEngineTests : IDisposable
             trade.Should().NotBeNull();
             trade!.ExitReason.Should().Be("TrailingStopHit");
             trade.NetPnL.Should().BeGreaterThan(4000m); // Locked over ₹4,000 profit!
+        }
+    }
+
+    [Fact]
+    public async Task UpdatePositionPricesAsync_LowPremiumOption_TrailsPurelyOnPercentage()
+    {
+        // Scenario: Small premium (Rs. 50 option, capital = 50 * 65 = Rs. 3,250)
+        // Static Rs. 1500 or 2500 would never trigger, but pure % triggers smoothly!
+        var posId = Guid.NewGuid();
+        var position = new PaperPosition
+        {
+            Id = posId,
+            InstrumentKey = "NSE_FO|NIFTY26NOV25000CE",
+            TradingSymbol = "NIFTY 23 NOV 25000 CE",
+            OptionType = OptionType.CE,
+            Quantity = 65,
+            AverageBuyPrice = 50.0m,
+            CurrentLtp = 50.0m,
+            StopLossPrice = 40.0m, // 20% initial SL
+            TargetPrice = 100.0m,
+            IsOpen = true
+        };
+
+        using (var scope = _serviceProvider.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NiftyQuantDbContext>();
+            db.PaperPositions.Add(position);
+            await db.SaveChangesAsync();
+        }
+
+        // 1. Price climbs to 65 (+30% gain, max gain = 15 pts)
+        // Tier 2 (+25%) locks 40% of gains: 50 + (15 * 0.40) = 56.0
+        // Tier 5 (Chandelier, +20%) sets floor: 65 - (15 * 0.20) = 62.0
+        // SL ratchets to 62.0!
+        await _paperEngine.UpdatePositionPricesAsync("NSE_FO|NIFTY26NOV25000CE", 65.0m);
+
+        using (var scope = _serviceProvider.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NiftyQuantDbContext>();
+            var pos = await db.PaperPositions.FindAsync(posId);
+            pos!.StopLossPrice.Should().Be(62.0m);
+        }
+
+        // 2. Price retraces from 65 to 61 (crosses below 62.0 SL)
+        await _paperEngine.UpdatePositionPricesAsync("NSE_FO|NIFTY26NOV25000CE", 61.0m);
+
+        // Assert: Auto-closed with TrailingStopHit and positive profit on small capital!
+        using (var scope = _serviceProvider.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NiftyQuantDbContext>();
+            var pos = await db.PaperPositions.FindAsync(posId);
+            pos!.IsOpen.Should().BeFalse();
+
+            var trade = await db.PaperTrades.FirstOrDefaultAsync(t => t.InstrumentKey == "NSE_FO|NIFTY26NOV25000CE");
+            trade.Should().NotBeNull();
+            trade!.ExitReason.Should().Be("TrailingStopHit");
+            trade.GrossPnL.Should().BeGreaterThan(600m); // ~11-12 pts * 65 = ~700+
         }
     }
 

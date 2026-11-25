@@ -400,24 +400,24 @@ public class PaperTradingEngine : IPaperTradingEngine
                     ? Math.Round((maxGainPerShare / pos.AverageBuyPrice) * 100m, 2)
                     : 0m;
 
-                // 1. Dynamic Multi-Tier Trailing Stop Loss & Profit Securing Engine
+                // 1. Dynamic Multi-Tier Trailing Stop Loss & Profit Securing Engine (100% Pure Percentage-Based)
                 if (_riskOptions.EnableTrailingStopLoss && maxGainPerShare > 0m)
                 {
                     decimal proposedSL = pos.StopLossPrice;
                     decimal initialRisk = pos.AverageBuyPrice - pos.StopLossPrice;
 
-                    // Tier 1: Capital Preservation & Breakeven Lock (+15% return OR +₹1,500 profit OR 1.5R reached)
-                    if (maxProfitAmount >= 1500m || maxReturnPercent >= 15m || (initialRisk > 0m && maxGainPerShare >= (initialRisk * 1.5m)))
+                    // Tier 1: Capital Preservation & Breakeven Lock (+15% return OR 1.5R reached)
+                    if (maxReturnPercent >= 15.0m || (initialRisk > 0m && maxGainPerShare >= (initialRisk * 1.5m)))
                     {
-                        decimal beLevel = Math.Round(pos.AverageBuyPrice + 1.0m, 2);
+                        decimal beLevel = Math.Round(pos.AverageBuyPrice + Math.Max(1.0m, pos.AverageBuyPrice * 0.005m), 2);
                         if (beLevel > proposedSL)
                         {
                             proposedSL = beLevel;
                         }
                     }
 
-                    // Tier 2: Lock 40% of Peak Gains (+₹2,500 profit OR +30% return)
-                    if (maxProfitAmount >= 2500m || maxReturnPercent >= 30m)
+                    // Tier 2: Lock 40% of Peak Gains (+25% return)
+                    if (maxReturnPercent >= 25.0m)
                     {
                         decimal tier2Level = Math.Round(pos.AverageBuyPrice + (maxGainPerShare * 0.40m), 2);
                         if (tier2Level > proposedSL)
@@ -426,8 +426,8 @@ public class PaperTradingEngine : IPaperTradingEngine
                         }
                     }
 
-                    // Tier 3: Lock 60% of Peak Gains (+₹4,000 profit OR +50% return)
-                    if (maxProfitAmount >= 4000m || maxReturnPercent >= 50m)
+                    // Tier 3: Lock 60% of Peak Gains (+35% return)
+                    if (maxReturnPercent >= 35.0m)
                     {
                         decimal tier3Level = Math.Round(pos.AverageBuyPrice + (maxGainPerShare * 0.60m), 2);
                         if (tier3Level > proposedSL)
@@ -436,8 +436,8 @@ public class PaperTradingEngine : IPaperTradingEngine
                         }
                     }
 
-                    // Tier 4: Super Profit Lock (The 6k+ Case) - Lock 75% of Peak Gains! (+₹5,500+ profit OR +70% return)
-                    if (maxProfitAmount >= 5500m || maxReturnPercent >= 70m)
+                    // Tier 4: Super Profit Lock (75% of Peak Gains) (+40% return)
+                    if (maxReturnPercent >= 40.0m)
                     {
                         decimal tier4Level = Math.Round(pos.AverageBuyPrice + (maxGainPerShare * 0.75m), 2);
                         if (tier4Level > proposedSL)
@@ -446,8 +446,8 @@ public class PaperTradingEngine : IPaperTradingEngine
                         }
                     }
 
-                    // Tier 5: Chandelier High-Water Mark Trail (Never allow more than 20% giveback once profit >= ₹2,000)
-                    if (maxProfitAmount >= 2000m)
+                    // Tier 5: Chandelier High-Water Mark Trail (Max 20% giveback once return >= +20%)
+                    if (maxReturnPercent >= 20.0m)
                     {
                         decimal chandelierFloor = Math.Round(pos.MaxLtpReached - (maxGainPerShare * 0.20m), 2);
                         if (chandelierFloor > proposedSL)
@@ -459,8 +459,8 @@ public class PaperTradingEngine : IPaperTradingEngine
                     // Ratchet SL Upwards Only
                     if (proposedSL > pos.StopLossPrice)
                     {
-                        _logger.LogInformation("[PROFIT LOCK / TSL] Ratcheted Stop Loss for {Symbol}: Old SL=₹{OldSL:F2} -> New SL=₹{NewSL:F2} (Peak LTP=₹{Peak:F2}, Max Profit=₹{MaxProfit:F2})",
-                            pos.TradingSymbol, pos.StopLossPrice, proposedSL, pos.MaxLtpReached, maxProfitAmount);
+                        _logger.LogInformation("[PROFIT LOCK / TSL] Ratcheted Stop Loss for {Symbol}: Old SL=₹{OldSL:F2} -> New SL=₹{NewSL:F2} (Peak LTP=₹{Peak:F2}, Max Return=+{MaxRet:F1}%, Max Profit=₹{MaxProfit:F2})",
+                            pos.TradingSymbol, pos.StopLossPrice, proposedSL, pos.MaxLtpReached, maxReturnPercent, maxProfitAmount);
 
                         pos.StopLossPrice = proposedSL;
                         pos.TrailingStopLossPrice = proposedSL;

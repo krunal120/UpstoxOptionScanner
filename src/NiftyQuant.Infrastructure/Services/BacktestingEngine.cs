@@ -230,46 +230,45 @@ public class BacktestingEngine : IBacktestingEngine
                         exitReason = "EndOfDaySquareoff";
                         exitPrice = currentPremium;
                     }
-                    // Dynamic Multi-Tier Trailing Stop Loss & Profit Lock
+                    // Dynamic Multi-Tier Trailing Stop Loss & Profit Lock (100% Pure Percentage-Based)
                     else if (request.EnableTrailingStop && bestPremium > activeTrade.EntryPrice)
                     {
                         decimal maxGain = bestPremium - activeTrade.EntryPrice;
-                        decimal maxProfit = maxGain * activeTrade.Quantity;
                         decimal maxRetPct = activeTrade.EntryPrice > 0m ? (maxGain / activeTrade.EntryPrice) * 100m : 0m;
                         decimal proposedSL = activeTrade.StopLossPrice;
 
-                        // Tier 1: Breakeven (+ ₹1.0 buffer)
-                        if (maxProfit >= 1500m || maxRetPct >= 15m)
+                        // Tier 1: Breakeven (+0.5% or +₹1.0 buffer) at +15% return
+                        if (maxRetPct >= 15.0m)
                         {
-                            decimal be = activeTrade.EntryPrice + 1.0m;
+                            decimal be = Math.Round(activeTrade.EntryPrice + Math.Max(1.0m, activeTrade.EntryPrice * 0.005m), 2);
                             if (be > proposedSL) proposedSL = be;
                         }
 
-                        // Tier 2: Lock 40% of Peak Gains
-                        if (maxProfit >= 2500m || maxRetPct >= 30m)
+                        // Tier 2: Lock 40% of Peak Gains at +25% return
+                        if (maxRetPct >= 25.0m)
                         {
-                            decimal t2 = activeTrade.EntryPrice + (maxGain * 0.40m);
+                            decimal t2 = Math.Round(activeTrade.EntryPrice + (maxGain * 0.40m), 2);
                             if (t2 > proposedSL) proposedSL = t2;
                         }
 
-                        // Tier 3: Lock 60% of Peak Gains
-                        if (maxProfit >= 4000m || maxRetPct >= 50m)
+                        // Tier 3: Lock 60% of Peak Gains at +35% return
+                        if (maxRetPct >= 35.0m)
                         {
-                            decimal t3 = activeTrade.EntryPrice + (maxGain * 0.60m);
+                            decimal t3 = Math.Round(activeTrade.EntryPrice + (maxGain * 0.60m), 2);
                             if (t3 > proposedSL) proposedSL = t3;
                         }
 
-                        // Tier 4: Super Profit Lock (75% of Peak Gains)
-                        if (maxProfit >= 5500m || maxRetPct >= 70m)
+                        // Tier 4: Super Profit Lock (75% of Peak Gains) at +40% return
+                        if (maxRetPct >= 40.0m)
                         {
-                            decimal t4 = activeTrade.EntryPrice + (maxGain * 0.75m);
+                            decimal t4 = Math.Round(activeTrade.EntryPrice + (maxGain * 0.75m), 2);
                             if (t4 > proposedSL) proposedSL = t4;
                         }
 
-                        // Tier 5: Chandelier Trail (20% giveback max)
-                        if (maxProfit >= 2000m)
+                        // Tier 5: Chandelier Trail (Max 20% giveback once return >= +20%)
+                        if (maxRetPct >= 20.0m)
                         {
-                            decimal chan = bestPremium - (maxGain * 0.20m);
+                            decimal chan = Math.Round(bestPremium - (maxGain * 0.20m), 2);
                             if (chan > proposedSL) proposedSL = chan;
                         }
 
