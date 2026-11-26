@@ -89,20 +89,74 @@ public class MarketController : ControllerBase
     [HttpGet("overview")]
     public async Task<IActionResult> GetMarketOverview(CancellationToken ct)
     {
-        var quote = await _upstoxClient.GetMarketQuoteAsync("NSE_INDEX|Nifty 50", ct);
-        var vixQuote = await _upstoxClient.GetMarketQuoteAsync("NSE_INDEX|India VIX", ct);
+        var keys = new[] { "NSE_INDEX|Nifty 50", "NSE_INDEX|Nifty Bank", "BSE_INDEX|SENSEX", "NSE_INDEX|India VIX" };
+        var quotes = await _upstoxClient.GetMarketQuotesAsync(keys, ct);
+
+        quotes.TryGetValue("NSE_INDEX|Nifty 50", out var niftyQuote);
+        quotes.TryGetValue("NSE_INDEX|Nifty Bank", out var bankQuote);
+        quotes.TryGetValue("BSE_INDEX|SENSEX", out var sensexQuote);
+        quotes.TryGetValue("NSE_INDEX|India VIX", out var vixQuote);
+
+        var niftyClose = niftyQuote?.Ohlc?.Close ?? niftyQuote?.LastPrice ?? 0m;
+        var niftyChange = niftyQuote != null && niftyClose > 0m ? (niftyQuote.LastPrice - niftyClose) : (niftyQuote?.NetChange ?? 0m);
+        var niftyChangePct = niftyClose > 0m ? Math.Round((niftyChange / niftyClose) * 100m, 2) : 0m;
+
+        var bankClose = bankQuote?.Ohlc?.Close ?? bankQuote?.LastPrice ?? 0m;
+        var bankChange = bankQuote != null && bankClose > 0m ? (bankQuote.LastPrice - bankClose) : (bankQuote?.NetChange ?? 0m);
+        var bankChangePct = bankClose > 0m ? Math.Round((bankChange / bankClose) * 100m, 2) : 0m;
+
+        var sensexClose = sensexQuote?.Ohlc?.Close ?? sensexQuote?.LastPrice ?? 0m;
+        var sensexChange = sensexQuote != null && sensexClose > 0m ? (sensexQuote.LastPrice - sensexClose) : (sensexQuote?.NetChange ?? 0m);
+        var sensexChangePct = sensexClose > 0m ? Math.Round((sensexChange / sensexClose) * 100m, 2) : 0m;
+
+        var vixClose = vixQuote?.Ohlc?.Close ?? vixQuote?.LastPrice ?? 0m;
+        var vixChange = vixQuote != null && vixClose > 0m ? (vixQuote.LastPrice - vixClose) : (vixQuote?.NetChange ?? 0m);
+        var vixChangePct = vixClose > 0m ? Math.Round((vixChange / vixClose) * 100m, 2) : 0m;
 
         return Ok(new
         {
             underlying = "NIFTY 50",
             instrumentKey = "NSE_INDEX|Nifty 50",
-            lastPrice = quote?.LastPrice ?? 0m,
-            netChange = quote?.NetChange ?? 0m,
-            ohlc = quote?.Ohlc,
+            lastPrice = niftyQuote?.LastPrice ?? 0m,
+            netChange = niftyChange,
+            ohlc = niftyQuote?.Ohlc,
             indiaVix = vixQuote?.LastPrice ?? 0m,
-            vixChange = vixQuote?.NetChange ?? 0m,
-            timestamp = quote?.Timestamp,
-            status = quote != null ? "Live" : "Unavailable"
+            vixChange = vixChange,
+            timestamp = niftyQuote?.Timestamp,
+            status = niftyQuote != null ? "Live" : "Unavailable",
+            niftySpot = new
+            {
+                lastPrice = niftyQuote?.LastPrice ?? 0m,
+                change = niftyChange,
+                changePercent = niftyChangePct,
+                open = niftyQuote?.Ohlc?.Open ?? 0m,
+                high = niftyQuote?.Ohlc?.High ?? 0m,
+                low = niftyQuote?.Ohlc?.Low ?? 0m,
+                close = niftyClose,
+                timestamp = niftyQuote?.Timestamp
+            },
+            bankNiftySpot = bankQuote != null ? new
+            {
+                lastPrice = bankQuote.LastPrice,
+                change = bankChange,
+                changePercent = bankChangePct,
+                open = bankQuote.Ohlc?.Open ?? 0m,
+                high = bankQuote.Ohlc?.High ?? 0m,
+                low = bankQuote.Ohlc?.Low ?? 0m,
+                close = bankClose,
+                timestamp = bankQuote.Timestamp
+            } : null,
+            sensexSpot = sensexQuote != null ? new
+            {
+                lastPrice = sensexQuote.LastPrice,
+                change = sensexChange,
+                changePercent = sensexChangePct,
+                open = sensexQuote.Ohlc?.Open ?? 0m,
+                high = sensexQuote.Ohlc?.High ?? 0m,
+                low = sensexQuote.Ohlc?.Low ?? 0m,
+                close = sensexClose,
+                timestamp = sensexQuote.Timestamp
+            } : null
         });
     }
 

@@ -38,6 +38,12 @@ export const Header: React.FC<HeaderProps> = ({
   const spot = overview?.niftySpot;
   const isUp = (spot?.change ?? 0) >= 0;
 
+  const bankSpot = overview?.bankNiftySpot;
+  const isBankUp = (bankSpot?.change ?? 0) >= 0;
+
+  const sensexSpot = overview?.sensexSpot;
+  const isSensexUp = (sensexSpot?.change ?? 0) >= 0;
+
   const getRegimeColor = (regimeType?: string) => {
     switch (regimeType) {
       case 'StrongBullish':
@@ -100,17 +106,17 @@ export const Header: React.FC<HeaderProps> = ({
           style={{
             display: 'flex',
             alignItems: 'baseline',
-            gap: '10px',
-            padding: '6px 14px',
+            gap: '8px',
+            padding: '5px 12px',
             backgroundColor: 'var(--bg-card)',
             borderRadius: '6px',
             border: '1px solid var(--border-color)',
           }}
         >
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>NIFTY 50</span>
+          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>NIFTY</span>
           <span
             style={{
-              fontSize: '1.25rem',
+              fontSize: '1.1rem',
               fontWeight: 700,
               fontFamily: 'JetBrains Mono',
               color: isUp ? 'var(--color-green)' : 'var(--color-red)',
@@ -121,17 +127,93 @@ export const Header: React.FC<HeaderProps> = ({
           {spot && (
             <span
               style={{
-                fontSize: '0.8rem',
+                fontSize: '0.75rem',
                 fontWeight: 600,
                 color: isUp ? 'var(--color-green)' : 'var(--color-red)',
               }}
             >
               {isUp ? '+' : ''}
-              {spot.change.toFixed(2)} ({isUp ? '+' : ''}
+              {spot.change.toFixed(1)} ({isUp ? '+' : ''}
               {spot.changePercent.toFixed(2)}%)
             </span>
           )}
         </div>
+
+        {/* BANK NIFTY Spot */}
+        {bankSpot && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: '8px',
+              padding: '5px 12px',
+              backgroundColor: 'var(--bg-card)',
+              borderRadius: '6px',
+              border: '1px solid var(--border-color)',
+            }}
+          >
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>BANKNIFTY</span>
+            <span
+              style={{
+                fontSize: '1.1rem',
+                fontWeight: 700,
+                fontFamily: 'JetBrains Mono',
+                color: isBankUp ? 'var(--color-green)' : 'var(--color-red)',
+              }}
+            >
+              {bankSpot.lastPrice.toFixed(2)}
+            </span>
+            <span
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                color: isBankUp ? 'var(--color-green)' : 'var(--color-red)',
+              }}
+            >
+              {isBankUp ? '+' : ''}
+              {bankSpot.change.toFixed(1)} ({isBankUp ? '+' : ''}
+              {bankSpot.changePercent.toFixed(2)}%)
+            </span>
+          </div>
+        )}
+
+        {/* SENSEX Spot */}
+        {sensexSpot && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'baseline',
+              gap: '8px',
+              padding: '5px 12px',
+              backgroundColor: 'var(--bg-card)',
+              borderRadius: '6px',
+              border: '1px solid var(--border-color)',
+            }}
+          >
+            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>SENSEX</span>
+            <span
+              style={{
+                fontSize: '1.1rem',
+                fontWeight: 700,
+                fontFamily: 'JetBrains Mono',
+                color: isSensexUp ? 'var(--color-green)' : 'var(--color-red)',
+              }}
+            >
+              {sensexSpot.lastPrice.toFixed(2)}
+            </span>
+            <span
+              style={{
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                color: isSensexUp ? 'var(--color-green)' : 'var(--color-red)',
+              }}
+            >
+              {isSensexUp ? '+' : ''}
+              {sensexSpot.change.toFixed(1)} ({isSensexUp ? '+' : ''}
+              {sensexSpot.changePercent.toFixed(2)}%)
+            </span>
+          </div>
+        )}
 
         {/* India VIX */}
         {overview?.indiaVix && (
@@ -140,16 +222,16 @@ export const Header: React.FC<HeaderProps> = ({
               display: 'flex',
               alignItems: 'baseline',
               gap: '8px',
-              padding: '6px 12px',
+              padding: '5px 10px',
               backgroundColor: 'var(--bg-card)',
               borderRadius: '6px',
               border: '1px solid var(--border-color)',
             }}
           >
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>India VIX</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>VIX</span>
             <span
               style={{
-                fontSize: '1rem',
+                fontSize: '0.95rem',
                 fontWeight: 700,
                 fontFamily: 'JetBrains Mono',
                 color: overview.indiaVix.lastPrice >= 20 ? 'var(--color-purple)' : 'var(--text-primary)',

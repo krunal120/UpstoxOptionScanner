@@ -35,6 +35,26 @@ export interface MarketOverview {
     close: number;
     timestamp?: string;
   };
+  bankNiftySpot?: {
+    lastPrice: number;
+    change: number;
+    changePercent: number;
+    open?: number;
+    high?: number;
+    low?: number;
+    close?: number;
+    timestamp?: string;
+  };
+  sensexSpot?: {
+    lastPrice: number;
+    change: number;
+    changePercent: number;
+    open?: number;
+    high?: number;
+    low?: number;
+    close?: number;
+    timestamp?: string;
+  };
   indiaVix?: {
     lastPrice: number;
     change: number;

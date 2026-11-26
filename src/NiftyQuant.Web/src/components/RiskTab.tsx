@@ -300,7 +300,7 @@ export const RiskTab: React.FC<RiskTabProps> = ({ riskStatus, account, onRefresh
               <CheckCircle2 size={15} /> Fixed Risk Per Trade (0.5% / ₹250)
             </div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px', lineHeight: 1.5 }}>
-              Position sizing allocates exactly 1 lot (65 shares) sizing based on stop-loss distance, never risking more than ₹250 per entry.
+              Position sizing dynamically allocates exactly 1 lot based on the index (Nifty: 65, Bank Nifty: 30, Sensex: 20) with strict 15% max initial risk clamp.
             </div>
           </div>
 

@@ -441,7 +441,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           </div>
 
           <div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>LOT SIZING (1 LOT = 65)</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              LOT SIZING (1 LOT = {latestSignal?.lotSize || (latestSignal?.selectedInstrumentKey?.includes('BANK') ? 30 : latestSignal?.selectedInstrumentKey?.includes('SENSEX') ? 20 : 65)})
+            </div>
             <div style={{ fontWeight: 800, fontSize: '1.15rem', color: 'var(--text-primary)', fontFamily: 'JetBrains Mono', marginTop: '2px' }}>
               ₹{(latestSignal?.riskAmount || 1035.45).toFixed(2)}
             </div>
