@@ -227,4 +227,100 @@ public class OptionsIntelligenceServiceTests
 
         score.Should().BeGreaterThan(40); // Strongly bullish score
     }
+
+    [Fact]
+    public void SelectBestContract_CeBuying_RejectsOtmContractsAndSelectsItmAtmContract()
+    {
+        // Spot is 25,917. Strike 25,950 is 33 points OTM. Strike 25,900 is ATM/ITM.
+        const decimal spot = 25917m;
+        var today = DateTime.UtcNow.Date;
+
+        var quotes = new List<OptionQuote>
+        {
+            // Strike 25950 CE: OTM, higher retail volume/OI
+            new()
+            {
+                InstrumentKey = "NSE_FO|25950CE",
+                OptionType = OptionType.CE,
+                StrikePrice = 25950m,
+                ExpiryDate = today,
+                Ltp = 125m,
+                BidPrice = 124.8m,
+                AskPrice = 125.2m,
+                Volume = 300000,
+                OpenInterest = 2500000m,
+                Delta = 0.42m,
+                ImpliedVolatility = 13.5m
+            },
+            // Strike 25900 CE: ATM/ITM, delta 0.55
+            new()
+            {
+                InstrumentKey = "NSE_FO|25900CE",
+                OptionType = OptionType.CE,
+                StrikePrice = 25900m,
+                ExpiryDate = today,
+                Ltp = 155m,
+                BidPrice = 154.5m,
+                AskPrice = 155.5m,
+                Volume = 120000,
+                OpenInterest = 1200000m,
+                Delta = 0.55m,
+                ImpliedVolatility = 13.2m
+            }
+        };
+
+        var selected = _service.SelectBestContract(quotes, OptionType.CE, spot);
+
+        selected.Should().NotBeNull();
+        selected!.InstrumentKey.Should().Be("NSE_FO|25900CE", "OTM strike 25950 must be filtered out for option buying");
+        selected.StrikePrice.Should().Be(25900m);
+    }
+
+    [Fact]
+    public void SelectBestContract_PeBuying_RejectsOtmContractsAndSelectsItmAtmContract()
+    {
+        // Spot is 25,917. Strike 25,900 is 17 points OTM for Put. Strike 25,950 is ITM for Put.
+        const decimal spot = 25917m;
+        var today = DateTime.UtcNow.Date;
+
+        var quotes = new List<OptionQuote>
+        {
+            // Strike 25900 PE: OTM for PE, higher retail volume/OI
+            new()
+            {
+                InstrumentKey = "NSE_FO|25900PE",
+                OptionType = OptionType.PE,
+                StrikePrice = 25900m, // < spot - 15 (25900 < 25902)
+                ExpiryDate = today,
+                Ltp = 110m,
+                BidPrice = 109.8m,
+                AskPrice = 110.2m,
+                Volume = 350000,
+                OpenInterest = 2800000m,
+                Delta = -0.42m,
+                ImpliedVolatility = 13.5m
+            },
+            // Strike 25950 PE: ITM for PE, delta -0.55
+            new()
+            {
+                InstrumentKey = "NSE_FO|25950PE",
+                OptionType = OptionType.PE,
+                StrikePrice = 25950m,
+                ExpiryDate = today,
+                Ltp = 140m,
+                BidPrice = 139.5m,
+                AskPrice = 140.5m,
+                Volume = 140000,
+                OpenInterest = 1100000m,
+                Delta = -0.55m,
+                ImpliedVolatility = 13.2m
+            }
+        };
+
+        var selected = _service.SelectBestContract(quotes, OptionType.PE, spot);
+
+        selected.Should().NotBeNull();
+        selected!.InstrumentKey.Should().Be("NSE_FO|25950PE", "OTM strike 25900 PE must be filtered out for option buying");
+        selected.StrikePrice.Should().Be(25950m);
+    }
 }

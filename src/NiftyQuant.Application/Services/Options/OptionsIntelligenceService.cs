@@ -264,22 +264,50 @@ public class OptionsIntelligenceService : IOptionsIntelligenceService
 
         if (targetQuotes.Count == 0) return null;
 
+        // Strictly prefer ATM and slight ITM contracts for Option Buying (eliminate OTM theta burn & zero intrinsic risk)
+        var eligibleQuotes = targetQuotes.Where(q =>
+        {
+            if (optionType == OptionType.CE)
+            {
+                // Buy CE: Candidate strike must be ITM or true ATM (strike <= spot + 15)
+                return q.StrikePrice <= (spotPrice + 15m);
+            }
+            else
+            {
+                // Buy PE: Candidate strike must be ITM or true ATM (strike >= spot - 15)
+                return q.StrikePrice >= (spotPrice - 15m);
+            }
+        }).ToList();
+
+        // Fallback to all target quotes only if no ITM/ATM quotes are present in quote list
+        var quotesToEvaluate = eligibleQuotes.Count > 0 ? eligibleQuotes : targetQuotes;
+
         var atmStrike = Math.Round(spotPrice / 50m, MidpointRounding.AwayFromZero) * 50m;
         SelectedOptionContractDto? bestCandidate = null;
         decimal highestScore = -1m;
 
-        foreach (var quote in targetQuotes)
+        foreach (var quote in quotesToEvaluate)
         {
             decimal score = 0m;
             var reasons = new List<string>();
 
-            // 1. Delta Suitability Score (0 to 30)
-            // Sweet spot: 0.45 to 0.65 (ATM / slight ITM)
+            // 1. Delta Suitability Score (0 to 35)
+            // Sweet spot: 0.50 to 0.60 (ATM / slight ITM)
             if (quote.Delta.HasValue && quote.Delta.Value != 0m)
             {
                 var absDelta = Math.Abs(quote.Delta.Value);
-                var deltaDistance = Math.Abs(absDelta - 0.52m); // target 0.52
-                var deltaScore = Math.Max(0m, 30m - (deltaDistance * 100m));
+                var deltaDistance = Math.Abs(absDelta - 0.54m); // target 0.54 (optimal ATM / slight ITM)
+                var deltaScore = Math.Max(0m, 35m - (deltaDistance * 100m));
+
+                if (absDelta >= 0.50m && absDelta <= 0.60m)
+                {
+                    deltaScore += 5m;
+                }
+                if (absDelta < 0.45m)
+                {
+                    deltaScore = Math.Max(0m, deltaScore - 20m);
+                }
+
                 score += deltaScore;
                 reasons.Add($"Delta: {absDelta:F2} (+{deltaScore:F0})");
             }
@@ -287,9 +315,31 @@ public class OptionsIntelligenceService : IOptionsIntelligenceService
             {
                 // Fallback to strike proximity to ATM
                 var strikeDistance = Math.Abs(quote.StrikePrice - atmStrike);
-                if (strikeDistance == 0m) { score += 30m; reasons.Add("ATM (+30)"); }
-                else if (strikeDistance == 50m) { score += 25m; reasons.Add("Near ATM (+25)"); }
-                else if (strikeDistance == 100m) { score += 15m; reasons.Add("Slight ITM/OTM (+15)"); }
+                if (strikeDistance == 0m) 
+                { 
+                    score += 35m; 
+                    reasons.Add("ATM (+35)"); 
+                }
+                else if (strikeDistance == 50m) 
+                { 
+                    bool isItm = (optionType == OptionType.CE && quote.StrikePrice < spotPrice) ||
+                                 (optionType == OptionType.PE && quote.StrikePrice > spotPrice);
+                    if (isItm)
+                    {
+                        score += 30m;
+                        reasons.Add("1-Strike ITM (+30)");
+                    }
+                    else
+                    {
+                        score += 20m;
+                        reasons.Add("Near ATM (+20)");
+                    }
+                }
+                else if (strikeDistance == 100m) 
+                { 
+                    score += 10m; 
+                    reasons.Add("Deeper ITM/OTM (+10)"); 
+                }
             }
 
             // 2. Liquidity & Bid-Ask Spread Score (0 to 40)
