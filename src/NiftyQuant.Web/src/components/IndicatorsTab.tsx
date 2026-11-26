@@ -12,16 +12,25 @@ import {
   TrendingDown,
   TrendingUp,
 } from 'lucide-react';
+import { SUPPORTED_INDICES, getIndexDefinition } from '../constants/indices';
 import type { CprResultDto, IndicatorSnapshotDto, MultiTimeframeStateDto } from '../types';
 
 interface IndicatorsTabProps {
   mtfState: MultiTimeframeStateDto | null;
   onRefresh: () => void;
+  selectedUnderlying?: string;
+  onUnderlyingChange?: (key: string) => void;
 }
 
-export const IndicatorsTab: React.FC<IndicatorsTabProps> = ({ mtfState, onRefresh }) => {
+export const IndicatorsTab: React.FC<IndicatorsTabProps> = ({
+  mtfState,
+  onRefresh,
+  selectedUnderlying = 'NSE_INDEX|Nifty 50',
+  onUnderlyingChange,
+}) => {
   const [selectedTf, setSelectedTf] = useState<'1m' | '5m' | '15m'>('5m');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const currentIndex = getIndexDefinition(selectedUnderlying);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -61,6 +70,71 @@ export const IndicatorsTab: React.FC<IndicatorsTabProps> = ({ mtfState, onRefres
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* Index Switcher Bar */}
+      <div
+        className="card"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          padding: '12px 18px',
+          backgroundColor: 'var(--bg-secondary)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '10px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-secondary)', letterSpacing: '0.5px' }}>
+            INDICATORS FOR:
+          </span>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {SUPPORTED_INDICES.map((idx) => {
+              const isSelected = selectedUnderlying === idx.key;
+              return (
+                <button
+                  key={idx.key}
+                  onClick={() => onUnderlyingChange?.(idx.key)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '6px 14px',
+                    borderRadius: '6px',
+                    border: isSelected ? '2px solid var(--color-blue)' : '1px solid var(--border-color)',
+                    backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.2)' : 'var(--bg-card)',
+                    color: isSelected ? 'var(--color-blue)' : 'var(--text-primary)',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <span>{idx.name}</span>
+                  <span
+                    style={{
+                      fontSize: '0.7rem',
+                      padding: '1px 5px',
+                      borderRadius: '3px',
+                      backgroundColor: isSelected ? 'var(--color-blue)' : 'rgba(255,255,255,0.08)',
+                      color: isSelected ? '#fff' : 'var(--text-muted)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {idx.exchange}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          Active: <strong style={{ color: 'var(--color-blue)' }}>{currentIndex.name}</strong>
+        </div>
+      </div>
+
       {/* Top Banner: Multi-Timeframe Alignment & CPR Quick Stats */}
       <div
         style={{

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { api } from '../services/api';
 import { formatToIST } from '../utils/dateUtils';
+import { SUPPORTED_INDICES, getIndexDefinition } from '../constants/indices';
 import type {
   DailyRiskStatusDto,
   MarketRegimeResultDto,
@@ -35,6 +36,8 @@ interface OverviewTabProps {
   portfolio: PaperPortfolioSummaryDto | null;
   optionsReport: OptionsReportDto | null;
   onRefresh: () => void;
+  selectedUnderlying?: string;
+  onUnderlyingChange?: (key: string) => void;
 }
 
 export const OverviewTab: React.FC<OverviewTabProps> = ({
@@ -44,10 +47,14 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
   portfolio,
   optionsReport,
   onRefresh,
+  selectedUnderlying = 'NSE_INDEX|Nifty 50',
+  onUnderlyingChange,
 }) => {
   const [isExecuting, setIsExecuting] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [executionMessage, setExecutionMessage] = useState<{ text: string; isError: boolean } | null>(null);
+
+  const currentIdx = getIndexDefinition(selectedUnderlying || optionsReport?.underlyingKey);
 
   const handleExecuteTrade = async (signalToExecute?: StrategySignalDto) => {
     const target = signalToExecute || latestSignal;
@@ -76,7 +83,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     setIsEvaluating(true);
     setExecutionMessage(null);
     try {
-      await api.evaluateStrategy();
+      await api.evaluateStrategy(selectedUnderlying);
       await onRefresh();
     } catch (err: any) {
       setExecutionMessage({
@@ -95,11 +102,12 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
     try {
       const slDist = Math.max(5, contract.ltp * 0.1);
       const tgtDist = slDist * 2;
+      const lotQty = currentIdx.lotSize;
 
       const syntheticSignal: StrategySignalDto = {
         id: '00000000-0000-0000-0000-000000000000',
         signalTimeUtc: new Date().toISOString(),
-        underlyingKey: optionsReport?.underlyingKey || 'NSE_INDEX|Nifty 50',
+        underlyingKey: optionsReport?.underlyingKey || selectedUnderlying || 'NSE_INDEX|Nifty 50',
         underlyingPrice: optionsReport?.underlyingPrice || 25500,
         direction: contract.optionType === 'CE' ? 'BuyCe' : 'BuyPe',
         strategyFamily: 'TrendFollowing',
@@ -115,9 +123,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
         stopLossPremium: Math.max(1, Math.round((contract.ltp - slDist) * 100) / 100),
         target1Premium: Math.round((contract.ltp + tgtDist) * 100) / 100,
         target2Premium: Math.round((contract.ltp + tgtDist * 1.5) * 100) / 100,
-        recommendedQuantity: 65,
-        lotSize: 65,
-        riskAmount: Math.round(slDist * 65),
+        recommendedQuantity: lotQty,
+        lotSize: lotQty,
+        riskAmount: Math.round(slDist * lotQty),
         rewardToRiskRatio: 2.0,
         isExecuted: false,
         reasons: [{ category: 'OptionSelection', scoreContribution: 30, description: contract.selectionReason }],
@@ -125,7 +133,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
       const res = await api.executeSignal(syntheticSignal);
       setExecutionMessage({
-        text: `Paper Order Filled: 1 Lot (65 Qty) of ${contract.strikePrice} ${contract.optionType} @ ₹${res.executedPrice.toFixed(2)}`,
+        text: `Paper Order Filled: 1 Lot (${lotQty} Qty) of ${contract.strikePrice} ${contract.optionType} @ ₹${res.executedPrice.toFixed(2)}`,
         isError: false,
       });
       await onRefresh();
@@ -147,6 +155,71 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* Index Switcher Bar */}
+      <div
+        className="card"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+          padding: '12px 18px',
+          backgroundColor: 'var(--bg-secondary)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '10px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--text-secondary)', letterSpacing: '0.5px' }}>
+            SCANNING INDEX:
+          </span>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {SUPPORTED_INDICES.map((idx) => {
+              const isSelected = selectedUnderlying === idx.key;
+              return (
+                <button
+                  key={idx.key}
+                  onClick={() => onUnderlyingChange?.(idx.key)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '6px 14px',
+                    borderRadius: '6px',
+                    border: isSelected ? '2px solid var(--color-blue)' : '1px solid var(--border-color)',
+                    backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.2)' : 'var(--bg-card)',
+                    color: isSelected ? 'var(--color-blue)' : 'var(--text-primary)',
+                    fontWeight: 700,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <span>{idx.name}</span>
+                  <span
+                    style={{
+                      fontSize: '0.7rem',
+                      padding: '1px 5px',
+                      borderRadius: '3px',
+                      backgroundColor: isSelected ? 'var(--color-blue)' : 'rgba(255,255,255,0.08)',
+                      color: isSelected ? '#fff' : 'var(--text-muted)',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Lot: {idx.lotSize}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          Active: <strong style={{ color: 'var(--color-blue)' }}>{currentIdx.name} ({currentIdx.exchange})</strong>
+        </div>
+      </div>
+
       {/* Top Capital & Status Bar */}
       <div
         style={{

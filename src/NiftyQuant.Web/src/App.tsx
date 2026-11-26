@@ -18,6 +18,7 @@ import { PaperTradingTab } from './components/PaperTradingTab';
 import { RiskTab } from './components/RiskTab';
 import { api } from './services/api';
 import { signalRClient } from './services/signalr';
+import { SUPPORTED_INDICES, getIndexDefinition } from './constants/indices';
 import type {
   AutonomousTradingStatusDto,
   DailyRiskStatusDto,
@@ -37,6 +38,7 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'overview' | 'chain' | 'indicators' | 'papertrading' | 'backtest' | 'risk'>(
     'overview'
   );
+  const [selectedUnderlying, setSelectedUnderlying] = useState<string>('NSE_INDEX|Nifty 50');
 
   // Core state
   const [overview, setOverview] = useState<MarketOverview | null>(null);
@@ -60,10 +62,10 @@ export const App: React.FC = () => {
       const [ov, reg, sig, hist, rpt, mtf, rsk, acc, port, pos, trd, ord, auto] = await Promise.allSettled([
         api.getMarketOverview(),
         api.getMarketRegime(),
-        api.getLatestSignal(),
-        api.getSignalHistory('NSE_INDEX|Nifty 50', 20),
-        api.getOptionsIntelligence(),
-        api.getMultiTimeframeState(),
+        api.getLatestSignal(selectedUnderlying),
+        api.getSignalHistory(selectedUnderlying, 20),
+        api.getOptionsIntelligence(undefined, selectedUnderlying),
+        api.getMultiTimeframeState(selectedUnderlying),
         api.getDailyRiskStatus(),
         api.getPaperAccount(),
         api.getPortfolioSummary(),
@@ -89,7 +91,12 @@ export const App: React.FC = () => {
     } catch (err) {
       console.warn('Refresh data failed:', err);
     }
-  }, []);
+  }, [selectedUnderlying]);
+
+  // Refetch when selected underlying changes
+  useEffect(() => {
+    refreshAllData();
+  }, [selectedUnderlying, refreshAllData]);
 
   // Initial load and SignalR event bindings
   useEffect(() => {
@@ -331,15 +338,27 @@ export const App: React.FC = () => {
             portfolio={portfolio}
             optionsReport={optionsReport}
             onRefresh={refreshAllData}
+            selectedUnderlying={selectedUnderlying}
+            onUnderlyingChange={setSelectedUnderlying}
           />
         )}
 
         {activeTab === 'chain' && (
-          <OptionChainTab optionsReport={optionsReport} onRefresh={refreshAllData} />
+          <OptionChainTab
+            optionsReport={optionsReport}
+            onRefresh={refreshAllData}
+            selectedUnderlying={selectedUnderlying}
+            onUnderlyingChange={setSelectedUnderlying}
+          />
         )}
 
         {activeTab === 'indicators' && (
-          <IndicatorsTab mtfState={mtfState} onRefresh={refreshAllData} />
+          <IndicatorsTab
+            mtfState={mtfState}
+            onRefresh={refreshAllData}
+            selectedUnderlying={selectedUnderlying}
+            onUnderlyingChange={setSelectedUnderlying}
+          />
         )}
 
         {activeTab === 'papertrading' && (
