@@ -39,8 +39,28 @@ export const api = {
     if (!res.ok) throw new Error('Failed to fetch market overview');
     const data = await res.json();
 
+    const vixPrice = typeof data.indiaVix === 'number'
+      ? data.indiaVix
+      : (data.indiaVix?.lastPrice ?? 0);
+    const vixChange = typeof data.indiaVix === 'object' && data.indiaVix?.change != null
+      ? data.indiaVix.change
+      : (data.vixChange ?? 0);
+    const vixChangePercent = typeof data.indiaVix === 'object' && data.indiaVix?.changePercent != null
+      ? data.indiaVix.changePercent
+      : 0;
+
+    const formattedVix = {
+      lastPrice: vixPrice,
+      change: vixChange,
+      changePercent: vixChangePercent,
+    };
+
     if (data.niftySpot) {
-      return data;
+      return {
+        ...data,
+        indiaVix: formattedVix,
+        timestampUtc: data.timestampUtc || data.timestamp || new Date().toISOString(),
+      };
     }
 
     const lastPrice = data.lastPrice ?? data.ohlc?.close ?? 0;
@@ -59,14 +79,8 @@ export const api = {
         close: data.ohlc?.close ?? lastPrice,
         timestamp: data.timestamp,
       },
-      indiaVix: data.indiaVix
-        ? {
-            lastPrice: data.indiaVix,
-            change: data.vixChange ?? 0,
-            changePercent: 0,
-          }
-        : undefined,
-      timestampUtc: data.timestamp || new Date().toISOString(),
+      indiaVix: formattedVix,
+      timestampUtc: data.timestampUtc || data.timestamp || new Date().toISOString(),
     };
   },
 

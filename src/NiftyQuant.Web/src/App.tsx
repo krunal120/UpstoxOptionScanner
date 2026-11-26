@@ -107,7 +107,7 @@ export const App: React.FC = () => {
     // Listen for live candle updates
     const unsubCandle = signalRClient.onCandleUpdated((candle) => {
       setOverview((prev) => {
-        if (!prev) {
+        if (!prev || !prev.niftySpot) {
           return {
             niftySpot: {
               lastPrice: candle.close,
@@ -118,23 +118,26 @@ export const App: React.FC = () => {
               change: 0,
               changePercent: 0,
             },
-            timestampUtc: candle.candleTimeUtc,
+            timestampUtc: candle.candleTimeUtc || new Date().toISOString(),
           };
         }
-        const change = candle.close - (prev.niftySpot.close - prev.niftySpot.change);
-        const changePercent = prev.niftySpot.close !== 0 ? (change / prev.niftySpot.close) * 100 : 0;
+        const prevClose = prev.niftySpot.close ?? prev.niftySpot.lastPrice ?? candle.close;
+        const prevChange = prev.niftySpot.change ?? 0;
+        const baseline = prevClose - prevChange;
+        const change = candle.close - baseline;
+        const changePercent = baseline !== 0 ? (change / baseline) * 100 : 0;
         return {
           ...prev,
           niftySpot: {
             ...prev.niftySpot,
             lastPrice: candle.close,
-            high: Math.max(prev.niftySpot.high, candle.high),
-            low: Math.min(prev.niftySpot.low, candle.low),
+            high: Math.max(prev.niftySpot.high ?? candle.close, candle.high),
+            low: Math.min(prev.niftySpot.low ?? candle.close, candle.low),
             close: candle.close,
             change,
             changePercent,
           },
-          timestampUtc: candle.candleTimeUtc,
+          timestampUtc: candle.candleTimeUtc || prev.timestampUtc || new Date().toISOString(),
         };
       });
     });

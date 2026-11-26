@@ -120,9 +120,15 @@ public class MarketController : ControllerBase
             lastPrice = niftyQuote?.LastPrice ?? 0m,
             netChange = niftyChange,
             ohlc = niftyQuote?.Ohlc,
-            indiaVix = vixQuote?.LastPrice ?? 0m,
+            indiaVix = new
+            {
+                lastPrice = vixQuote?.LastPrice ?? 0m,
+                change = vixChange,
+                changePercent = vixChangePct
+            },
             vixChange = vixChange,
             timestamp = niftyQuote?.Timestamp,
+            timestampUtc = DateTime.UtcNow.ToString("o"),
             status = niftyQuote != null ? "Live" : "Unavailable",
             niftySpot = new
             {

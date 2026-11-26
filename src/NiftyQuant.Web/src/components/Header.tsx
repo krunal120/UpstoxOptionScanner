@@ -44,6 +44,10 @@ export const Header: React.FC<HeaderProps> = ({
   const sensexSpot = overview?.sensexSpot;
   const isSensexUp = (sensexSpot?.change ?? 0) >= 0;
 
+  const vixPrice = typeof overview?.indiaVix === 'number'
+    ? overview.indiaVix
+    : overview?.indiaVix?.lastPrice;
+
   const getRegimeColor = (regimeType?: string) => {
     switch (regimeType) {
       case 'StrongBullish':
@@ -122,7 +126,7 @@ export const Header: React.FC<HeaderProps> = ({
               color: isUp ? 'var(--color-green)' : 'var(--color-red)',
             }}
           >
-            {spot ? spot.lastPrice.toFixed(2) : 'Loading...'}
+            {spot?.lastPrice != null ? spot.lastPrice.toFixed(2) : 'Loading...'}
           </span>
           {spot && (
             <span
@@ -133,8 +137,8 @@ export const Header: React.FC<HeaderProps> = ({
               }}
             >
               {isUp ? '+' : ''}
-              {spot.change.toFixed(1)} ({isUp ? '+' : ''}
-              {spot.changePercent.toFixed(2)}%)
+              {(spot.change ?? 0).toFixed(1)} ({isUp ? '+' : ''}
+              {(spot.changePercent ?? 0).toFixed(2)}%)
             </span>
           )}
         </div>
@@ -161,7 +165,7 @@ export const Header: React.FC<HeaderProps> = ({
                 color: isBankUp ? 'var(--color-green)' : 'var(--color-red)',
               }}
             >
-              {bankSpot.lastPrice.toFixed(2)}
+              {(bankSpot.lastPrice ?? 0).toFixed(2)}
             </span>
             <span
               style={{
@@ -171,8 +175,8 @@ export const Header: React.FC<HeaderProps> = ({
               }}
             >
               {isBankUp ? '+' : ''}
-              {bankSpot.change.toFixed(1)} ({isBankUp ? '+' : ''}
-              {bankSpot.changePercent.toFixed(2)}%)
+              {(bankSpot.change ?? 0).toFixed(1)} ({isBankUp ? '+' : ''}
+              {(bankSpot.changePercent ?? 0).toFixed(2)}%)
             </span>
           </div>
         )}
@@ -199,7 +203,7 @@ export const Header: React.FC<HeaderProps> = ({
                 color: isSensexUp ? 'var(--color-green)' : 'var(--color-red)',
               }}
             >
-              {sensexSpot.lastPrice.toFixed(2)}
+              {(sensexSpot.lastPrice ?? 0).toFixed(2)}
             </span>
             <span
               style={{
@@ -209,14 +213,14 @@ export const Header: React.FC<HeaderProps> = ({
               }}
             >
               {isSensexUp ? '+' : ''}
-              {sensexSpot.change.toFixed(1)} ({isSensexUp ? '+' : ''}
-              {sensexSpot.changePercent.toFixed(2)}%)
+              {(sensexSpot.change ?? 0).toFixed(1)} ({isSensexUp ? '+' : ''}
+              {(sensexSpot.changePercent ?? 0).toFixed(2)}%)
             </span>
           </div>
         )}
 
         {/* India VIX */}
-        {overview?.indiaVix && (
+        {vixPrice != null && vixPrice > 0 && (
           <div
             style={{
               display: 'flex',
@@ -234,10 +238,10 @@ export const Header: React.FC<HeaderProps> = ({
                 fontSize: '0.95rem',
                 fontWeight: 700,
                 fontFamily: 'JetBrains Mono',
-                color: overview.indiaVix.lastPrice >= 20 ? 'var(--color-purple)' : 'var(--text-primary)',
+                color: vixPrice >= 20 ? 'var(--color-purple)' : 'var(--text-primary)',
               }}
             >
-              {overview.indiaVix.lastPrice.toFixed(2)}
+              {vixPrice.toFixed(2)}
             </span>
           </div>
         )}
