@@ -37,9 +37,10 @@ public class RiskManagementService : IRiskManagementService
         StrategySignal signal,
         CancellationToken ct = default)
     {
+        var profile = IndexRegistry.GetProfile(signal?.UnderlyingKey);
         var result = new PreTradeRiskValidationResult
         {
-            LotSize = PositionSizingCalculator.DefaultLotSize,
+            LotSize = profile.LotSize,
             ExecutionMode = "SimulatedPaperTradingOnly"
         };
 
@@ -168,7 +169,7 @@ public class RiskManagementService : IRiskManagementService
             signal.StopLossPremium,
             account.AvailableBalance,
             account.MaxRiskPerTrade,
-            PositionSizingCalculator.DefaultLotSize,
+            profile.LotSize,
             _riskOptions.MaxConcurrentPositions);
 
         if (!sizing.IsAffordable)

@@ -1,5 +1,6 @@
 using NiftyQuant.Application.Common.Interfaces;
 using NiftyQuant.Application.Common.Models.Strategy;
+using NiftyQuant.Domain.Entities;
 using NiftyQuant.Domain.Enums;
 
 namespace NiftyQuant.Application.Services.Strategy;
@@ -23,6 +24,7 @@ public class TrendFollowingStrategyEvaluator : IStrategyEvaluator
         var snap1m = mtf.Timeframe1m;
         var options = context.OptionsReport;
         var spot = context.CurrentPrice;
+        var profile = IndexRegistry.GetProfile(context.UnderlyingKey);
 
         if (snap15m == null || snap5m == null)
         {
@@ -43,14 +45,14 @@ public class TrendFollowingStrategyEvaluator : IStrategyEvaluator
                 bullReasons.Add(new SignalReasonDto { Category = "Trend", ScoreContribution = 25m, Description = "15m Primary Trend is strongly Bullish (EMA 9 > 21 and price above EMA 21)." });
             }
 
-            // 2. VWAP Relationship & No-Chase Guard
+            // 2. VWAP Relationship & No-Chase Guard (Dynamically scaled by index profile)
             if (snap5m.Vwap.HasValue)
             {
                 var vwap = snap5m.Vwap.Value;
                 if (spot >= vwap)
                 {
                     var distFromVwap = spot - vwap;
-                    if (distFromVwap > 55m)
+                    if (distFromVwap > profile.VwapOverExtendedPoints)
                     {
                         // Over-extended! Deduct 20 points
                         bullScore -= 20m;
@@ -58,10 +60,10 @@ public class TrendFollowingStrategyEvaluator : IStrategyEvaluator
                         { 
                             Category = "VolumeBreadth", 
                             ScoreContribution = -20m, 
-                            Description = $"No-Chase Warning: Spot {spot:F1} is over-extended {distFromVwap:F1} pts above VWAP {vwap:F1}." 
+                            Description = $"No-Chase Warning: Spot {spot:F1} is over-extended {distFromVwap:F1} pts above VWAP {vwap:F1} for {profile.DisplayName} (Max allowed {profile.VwapOverExtendedPoints} pts)." 
                         });
                     }
-                    else if (distFromVwap <= 35m || (snap5m.Ema21.HasValue && Math.Abs(spot - snap5m.Ema21.Value) <= 20m))
+                    else if (distFromVwap <= profile.VwapPullbackPoints || (snap5m.Ema21.HasValue && Math.Abs(spot - snap5m.Ema21.Value) <= profile.Ema21TolerancePoints))
                     {
                         // Pullback / optimal continuation zone
                         bullScore += 20m;
@@ -69,12 +71,12 @@ public class TrendFollowingStrategyEvaluator : IStrategyEvaluator
                         { 
                             Category = "VolumeBreadth", 
                             ScoreContribution = 20m, 
-                            Description = $"Optimal Entry: Spot {spot:F1} is near VWAP/EMA21 support ({distFromVwap:F1} pts from VWAP)." 
+                            Description = $"Optimal Entry: Spot {spot:F1} is near VWAP/EMA21 support ({distFromVwap:F1} pts from VWAP for {profile.DisplayName})." 
                         });
                     }
                     else
                     {
-                        // Moderate extension (35-55 pts)
+                        // Moderate extension
                         bullScore += 10m;
                         bullReasons.Add(new SignalReasonDto 
                         { 
@@ -152,9 +154,9 @@ public class TrendFollowingStrategyEvaluator : IStrategyEvaluator
                 result.Direction = bullScore >= 80m ? SignalDirection.StrongBuyCe : SignalDirection.BuyCe;
                 result.Confidence = bullScore;
 
-                // Stop Loss: VWAP or recent 5m EMA 21 (minimum 20 pts)
-                decimal slBase = Math.Min(snap5m.Ema21 ?? spot - 25m, snap5m.Vwap ?? spot - 25m);
-                decimal riskDistance = Math.Max(20m, spot - slBase);
+                // Stop Loss: VWAP or recent 5m EMA 21 (scaled to index profile)
+                decimal slBase = Math.Min(snap5m.Ema21 ?? spot - profile.SlBaseDefaultPoints, snap5m.Vwap ?? spot - profile.SlBaseDefaultPoints);
+                decimal riskDistance = Math.Max(profile.MinSlUnderlyingPoints, spot - slBase);
                 result.StopLossUnderlyingDistance = Math.Round(riskDistance, 1);
                 result.Target1UnderlyingDistance = Math.Round(riskDistance * 2m, 1);
                 result.Target2UnderlyingDistance = Math.Round(riskDistance * 3m, 1);
@@ -175,14 +177,14 @@ public class TrendFollowingStrategyEvaluator : IStrategyEvaluator
                 bearReasons.Add(new SignalReasonDto { Category = "Trend", ScoreContribution = 25m, Description = "15m Primary Trend is strongly Bearish (EMA 9 < 21 and price below EMA 21)." });
             }
 
-            // 2. VWAP Relationship & No-Chase Guard
+            // 2. VWAP Relationship & No-Chase Guard (Dynamically scaled by index profile)
             if (snap5m.Vwap.HasValue)
             {
                 var vwap = snap5m.Vwap.Value;
                 if (spot <= vwap)
                 {
                     var distFromVwap = vwap - spot;
-                    if (distFromVwap > 55m)
+                    if (distFromVwap > profile.VwapOverExtendedPoints)
                     {
                         // Over-dumped! Deduct 20 points
                         bearScore -= 20m;
@@ -190,10 +192,10 @@ public class TrendFollowingStrategyEvaluator : IStrategyEvaluator
                         { 
                             Category = "VolumeBreadth", 
                             ScoreContribution = -20m, 
-                            Description = $"No-Chase Warning: Spot {spot:F1} is over-extended {distFromVwap:F1} pts below VWAP {vwap:F1}." 
+                            Description = $"No-Chase Warning: Spot {spot:F1} is over-extended {distFromVwap:F1} pts below VWAP {vwap:F1} for {profile.DisplayName} (Max allowed {profile.VwapOverExtendedPoints} pts)." 
                         });
                     }
-                    else if (distFromVwap <= 35m || (snap5m.Ema21.HasValue && Math.Abs(spot - snap5m.Ema21.Value) <= 20m))
+                    else if (distFromVwap <= profile.VwapPullbackPoints || (snap5m.Ema21.HasValue && Math.Abs(spot - snap5m.Ema21.Value) <= profile.Ema21TolerancePoints))
                     {
                         // Pullback / optimal continuation zone
                         bearScore += 20m;
@@ -201,12 +203,12 @@ public class TrendFollowingStrategyEvaluator : IStrategyEvaluator
                         { 
                             Category = "VolumeBreadth", 
                             ScoreContribution = 20m, 
-                            Description = $"Optimal Entry: Spot {spot:F1} is near VWAP/EMA21 resistance ({distFromVwap:F1} pts from VWAP)." 
+                            Description = $"Optimal Entry: Spot {spot:F1} is near VWAP/EMA21 resistance ({distFromVwap:F1} pts from VWAP for {profile.DisplayName})." 
                         });
                     }
                     else
                     {
-                        // Moderate extension (35-55 pts)
+                        // Moderate extension
                         bearScore += 10m;
                         bearReasons.Add(new SignalReasonDto 
                         { 
@@ -284,8 +286,8 @@ public class TrendFollowingStrategyEvaluator : IStrategyEvaluator
                 result.Direction = bearScore >= 80m ? SignalDirection.StrongBuyPe : SignalDirection.BuyPe;
                 result.Confidence = bearScore;
 
-                decimal slBase = Math.Max(snap5m.Ema21 ?? spot + 25m, snap5m.Vwap ?? spot + 25m);
-                decimal riskDistance = Math.Max(20m, slBase - spot);
+                decimal slBase = Math.Max(snap5m.Ema21 ?? spot + profile.SlBaseDefaultPoints, snap5m.Vwap ?? spot + profile.SlBaseDefaultPoints);
+                decimal riskDistance = Math.Max(profile.MinSlUnderlyingPoints, slBase - spot);
                 result.StopLossUnderlyingDistance = Math.Round(riskDistance, 1);
                 result.Target1UnderlyingDistance = Math.Round(riskDistance * 2m, 1);
                 result.Target2UnderlyingDistance = Math.Round(riskDistance * 3m, 1);

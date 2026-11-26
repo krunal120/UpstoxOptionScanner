@@ -8,4 +8,6 @@ public interface ISubscriptionManager
 
     Task InitializeAsync(CancellationToken ct = default);
     Task OnSpotPriceUpdateAsync(decimal spotPrice, CancellationToken ct = default);
+    Task OnSpotPriceUpdateAsync(string instrumentKey, decimal spotPrice, CancellationToken ct = default);
+    string GetCurrentExpiry(string underlyingKey);
 }

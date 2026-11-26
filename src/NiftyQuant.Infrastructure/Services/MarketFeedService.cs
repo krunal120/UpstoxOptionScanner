@@ -96,13 +96,17 @@ public class MarketFeedService : BackgroundService
                 if (_webSocketClient.IsConnected && (DateTime.UtcNow - _lastSnapshotTime).TotalSeconds >= 60)
                 {
                     _lastSnapshotTime = DateTime.UtcNow;
-                    try
+                    foreach (var profile in IndexRegistry.SupportedIndices.Where(p => p.IsEnabled))
                     {
-                        await _snapshotEngine.CaptureAndPersistSnapshotAsync(expiryDate: _subscriptionManager.CurrentExpiry, ct: stoppingToken);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogTrace(ex, "Failed periodic option chain snapshot capture");
+                        try
+                        {
+                            var expiry = _subscriptionManager.GetCurrentExpiry(profile.UnderlyingKey);
+                            await _snapshotEngine.CaptureAndPersistSnapshotAsync(underlyingKey: profile.UnderlyingKey, expiryDate: expiry, ct: stoppingToken);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogTrace(ex, "Failed periodic option chain snapshot capture for {Key}", profile.UnderlyingKey);
+                        }
                     }
                 }
 
@@ -133,9 +137,9 @@ public class MarketFeedService : BackgroundService
         await _candleEngine.ProcessTickAsync(tick);
 
         // 2. Dynamic ATM Strike adjustment when spot moves
-        if (tick.InstrumentKey == "NSE_INDEX|Nifty 50" && tick.Ltp > 0m)
+        if (tick.Ltp > 0m && IndexRegistry.IsSupportedIndex(tick.InstrumentKey))
         {
-            await _subscriptionManager.OnSpotPriceUpdateAsync(tick.Ltp);
+            await _subscriptionManager.OnSpotPriceUpdateAsync(tick.InstrumentKey, tick.Ltp);
         }
 
         // 3. Update active paper positions in real-time for trailing stop / target triggers

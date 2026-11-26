@@ -56,7 +56,7 @@ public class OptionsController : ControllerBase
         }
 
         var candidate = _optionsIntelligence.SelectBestContract(
-            snapshot.Quotes, optionType, snapshot.UnderlyingPrice, minLiquidityScore);
+            snapshot.Quotes, optionType, snapshot.UnderlyingPrice, minLiquidityScore, underlyingKey);
 
         if (candidate == null)
         {

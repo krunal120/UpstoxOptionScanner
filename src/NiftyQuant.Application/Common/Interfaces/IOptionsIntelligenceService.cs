@@ -28,7 +28,8 @@ public interface IOptionsIntelligenceService
         IReadOnlyList<OptionQuote> quotes,
         OptionType optionType,
         decimal spotPrice,
-        decimal minLiquidityScore = 40m);
+        decimal minLiquidityScore = 40m,
+        string underlyingKey = "NSE_INDEX|Nifty 50");
 
     int CalculateSentimentScore(
         PcrAnalysisDto pcr,

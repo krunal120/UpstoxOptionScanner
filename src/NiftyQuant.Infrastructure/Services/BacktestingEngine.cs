@@ -432,7 +432,7 @@ public class BacktestingEngine : IBacktestingEngine
 
                                 if (rrValid)
                                 {
-                                    int quantity = 65; // 1 lot of NIFTY
+                                    int quantity = IndexRegistry.GetProfile(request.UnderlyingKey).LotSize;
                                     decimal requiredCost = executedEntry * quantity;
 
                                     if (runningCapital >= requiredCost)

@@ -323,4 +323,50 @@ public class OptionsIntelligenceServiceTests
         selected!.InstrumentKey.Should().Be("NSE_FO|25950PE", "OTM strike 25900 PE must be filtered out for option buying");
         selected.StrikePrice.Should().Be(25950m);
     }
+
+    [Fact]
+    public void SelectBestContract_BankNiftyCeBuying_Selects100StrikeStepAtmContract()
+    {
+        // Spot is 52,235. Strike 52,300 is 65 points OTM (> 30 pts buffer). Strike 52,200 is ATM/ITM.
+        const decimal spot = 52235m;
+        var today = DateTime.UtcNow.Date;
+
+        var quotes = new List<OptionQuote>
+        {
+            // Strike 52300 CE: OTM for Bank Nifty
+            new()
+            {
+                InstrumentKey = "NSE_FO|BANKNIFTY52300CE",
+                OptionType = OptionType.CE,
+                StrikePrice = 52300m,
+                ExpiryDate = today,
+                Ltp = 240m,
+                BidPrice = 239.5m,
+                AskPrice = 240.5m,
+                Volume = 500000,
+                OpenInterest = 3000000m,
+                Delta = 0.42m
+            },
+            // Strike 52200 CE: ATM/ITM for Bank Nifty
+            new()
+            {
+                InstrumentKey = "NSE_FO|BANKNIFTY52200CE",
+                OptionType = OptionType.CE,
+                StrikePrice = 52200m,
+                ExpiryDate = today,
+                Ltp = 310m,
+                BidPrice = 309.5m,
+                AskPrice = 310.5m,
+                Volume = 250000,
+                OpenInterest = 1500000m,
+                Delta = 0.55m
+            }
+        };
+
+        var selected = _service.SelectBestContract(quotes, OptionType.CE, spot, 40m, "NSE_INDEX|Nifty Bank");
+
+        selected.Should().NotBeNull();
+        selected!.InstrumentKey.Should().Be("NSE_FO|BANKNIFTY52200CE");
+        selected.StrikePrice.Should().Be(52200m);
+    }
 }

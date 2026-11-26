@@ -61,7 +61,7 @@ public class PaperTradingEngine : IPaperTradingEngine
                 SignalId = signal.Id,
                 InstrumentKey = signal.SelectedInstrumentKey,
                 Side = PaperOrderSide.Buy,
-                Quantity = riskValidation.AllocatedQuantity > 0 ? riskValidation.AllocatedQuantity : 65,
+                Quantity = riskValidation.AllocatedQuantity > 0 ? riskValidation.AllocatedQuantity : IndexRegistry.GetProfile(signal.UnderlyingKey).LotSize,
                 OrderedPrice = signal.EntryPremium,
                 ExecutedPrice = 0m,
                 Slippage = 0m,

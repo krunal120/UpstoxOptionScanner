@@ -238,4 +238,100 @@ public class TrendFollowingStrategyEvaluatorTests
         result.Reasons.Should().Contain(r => r.Description.Contains("Oversold Exhaustion"));
         result.Reasons.Should().Contain(r => r.Description.Contains("Heavy Put Writing Support"));
     }
+
+    [Fact]
+    public void Evaluate_BankNiftyBullishPullback_AppliesBankNiftyThresholdsAndTriggersBuyCe()
+    {
+        // Bank Nifty spot = 52,280, VWAP = 52,200 (80 points away)
+        // In Nifty, 80 pts would be overextended. In Bank Nifty, 80 pts is an optimal pullback (<= 85 pts)!
+        var regime = new MarketRegimeResult
+        {
+            Regime = MarketRegimeType.StrongBullish,
+            TrendAllowedBullish = true,
+            TrendAllowedBearish = false
+        };
+
+        var context = new StrategyAnalysisContext
+        {
+            UnderlyingKey = "NSE_INDEX|Nifty Bank",
+            CurrentPrice = 52280m,
+            MultiTimeframeState = new MultiTimeframeIndicatorState
+            {
+                Timeframe15m = new IndicatorSnapshotDto
+                {
+                    Ema9 = 52200m,
+                    Ema21 = 52050m,
+                    SupertrendIsBullish = true
+                },
+                Timeframe5m = new IndicatorSnapshotDto
+                {
+                    Ema9 = 52250m,
+                    Ema21 = 52180m,
+                    Vwap = 52200m, // 80 points below spot (well within Bank Nifty 85 pt pullback tolerance)
+                    SupertrendIsBullish = true,
+                    Rsi14 = 58m // Optimal bullish momentum zone
+                }
+            },
+            OptionsReport = new OptionsIntelligenceReportDto
+            {
+                OptionsSentimentScore = 35,
+                PcrAnalysis = new PcrAnalysisDto { PcrOi = 1.20m }
+            }
+        };
+
+        // Act
+        var result = _evaluator.Evaluate(context, regime);
+
+        // Assert
+        result.HasSignal.Should().BeTrue("80 point distance is an optimal pullback for Bank Nifty");
+        result.Direction.Should().BeOneOf(SignalDirection.BuyCe, SignalDirection.StrongBuyCe);
+        result.Reasons.Should().Contain(r => r.Description.Contains("Optimal Entry") && r.Description.Contains("Bank Nifty"));
+    }
+
+    [Fact]
+    public void Evaluate_BankNiftyOverExtended_RejectsBuyCe()
+    {
+        // Bank Nifty spot = 52,400, VWAP = 52,200 (200 points away - exceeds 140 pt max)
+        var regime = new MarketRegimeResult
+        {
+            Regime = MarketRegimeType.StrongBullish,
+            TrendAllowedBullish = true,
+            TrendAllowedBearish = false
+        };
+
+        var context = new StrategyAnalysisContext
+        {
+            UnderlyingKey = "NSE_INDEX|Nifty Bank",
+            CurrentPrice = 52400m,
+            MultiTimeframeState = new MultiTimeframeIndicatorState
+            {
+                Timeframe15m = new IndicatorSnapshotDto
+                {
+                    Ema9 = 52200m,
+                    Ema21 = 52050m,
+                    SupertrendIsBullish = true
+                },
+                Timeframe5m = new IndicatorSnapshotDto
+                {
+                    Ema9 = 52250m,
+                    Ema21 = 52180m,
+                    Vwap = 52200m, // 200 points below spot (overextended for Bank Nifty)
+                    SupertrendIsBullish = true,
+                    Rsi14 = 68m // Overbought exhaustion
+                }
+            },
+            OptionsReport = new OptionsIntelligenceReportDto
+            {
+                OptionsSentimentScore = 20,
+                PcrAnalysis = new PcrAnalysisDto { PcrOi = 0.92m }
+            }
+        };
+
+        // Act
+        var result = _evaluator.Evaluate(context, regime);
+
+        // Assert
+        result.HasSignal.Should().BeFalse();
+        result.Reasons.Should().Contain(r => r.Description.Contains("No-Chase Warning") && r.Description.Contains("Bank Nifty"));
+    }
 }

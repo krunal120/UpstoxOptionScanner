@@ -168,9 +168,9 @@ public class Worker : BackgroundService
         await _candleEngine.ProcessTickAsync(tick);
 
         // 2. Dynamic ATM Strike Shift
-        if (tick.InstrumentKey == "NSE_INDEX|Nifty 50" && tick.Ltp > 0m)
+        if (tick.Ltp > 0m && IndexRegistry.IsSupportedIndex(tick.InstrumentKey))
         {
-            await _subscriptionManager.OnSpotPriceUpdateAsync(tick.Ltp);
+            await _subscriptionManager.OnSpotPriceUpdateAsync(tick.InstrumentKey, tick.Ltp);
         }
 
         // 3. Update active paper positions for real-time trailing stop / target triggers
@@ -203,67 +203,70 @@ public class Worker : BackgroundService
 
     private async Task EvaluateAndExecuteStrategiesAsync(CancellationToken ct)
     {
-        const string underlyingKey = "NSE_INDEX|Nifty 50";
-
-        try
+        foreach (var profile in IndexRegistry.SupportedIndices.Where(p => p.IsEnabled))
         {
-            var context = await BuildStrategyContextAsync(underlyingKey, ct);
-            if (context == null) return;
-
-            var signal = await _strategyEngine.EvaluateStrategiesAsync(context, ct);
-            if (signal == null) return;
-
-            // Check if signal indicates an executable trade (Option Buying CE/PE only)
-            bool isExecutable = signal.Direction == SignalDirection.BuyCe ||
-                               signal.Direction == SignalDirection.StrongBuyCe ||
-                               signal.Direction == SignalDirection.BuyPe ||
-                               signal.Direction == SignalDirection.StrongBuyPe;
-
-            if (!isExecutable)
+            try
             {
-                _logger.LogDebug("Signal evaluation: {Direction} (Confidence: {Conf}%). No execution required.",
-                    signal.Direction, signal.Confidence);
-                return;
-            }
+                var context = await BuildStrategyContextAsync(profile.UnderlyingKey, ct);
+                if (context == null) continue;
 
-            _logger.LogInformation("[SIGNAL DETECTED] {Direction} | Strategy: {Strategy} | Conf: {Conf}% | Instrument: {Key} | Entry: ₹{Entry} SL: ₹{SL} Tgt: ₹{Tgt} R:R: {RR}",
-                signal.Direction,
-                signal.StrategyFamily,
-                signal.Confidence,
-                signal.SelectedInstrumentKey,
-                signal.EntryPremium,
-                signal.StopLossPremium,
-                signal.Target1Premium,
-                signal.RewardToRiskRatio);
+                var signal = await _strategyEngine.EvaluateStrategiesAsync(context, ct);
+                if (signal == null) continue;
 
-            // Validate Pre-Trade Risk Rules
-            var riskResult = await _riskService.ValidatePreTradeAsync(signal, ct);
-            if (!riskResult.IsApproved)
-            {
-                _logger.LogWarning("[RISK VETO] Trade execution rejected by Risk Management Engine: {Reason}",
-                    string.Join("; ", riskResult.VetoReasons));
-                return;
-            }
+                // Check if signal indicates an executable trade (Option Buying CE/PE only)
+                bool isExecutable = signal.Direction == SignalDirection.BuyCe ||
+                                   signal.Direction == SignalDirection.StrongBuyCe ||
+                                   signal.Direction == SignalDirection.BuyPe ||
+                                   signal.Direction == SignalDirection.StrongBuyPe;
 
-            // Execute simulated paper trade
-            var execResult = await _paperTradingEngine.ExecuteSignalAsync(signal, simulateSlippage: true, ct);
-            if (execResult.IsSuccess)
-            {
-                _logger.LogInformation("[TRADE EXECUTED] Paper order filled for {Key} ({Qty} shares) @ ₹{Price:F2} | Order ID: {OrderId}",
-                    execResult.InstrumentKey,
-                    execResult.Quantity,
-                    execResult.ExecutedPrice,
-                    execResult.OrderId);
+                if (!isExecutable)
+                {
+                    _logger.LogDebug("[{Symbol}] Signal evaluation: {Direction} (Confidence: {Conf}%). No execution required.",
+                        profile.Symbol, signal.Direction, signal.Confidence);
+                    continue;
+                }
+
+                _logger.LogInformation("[{Symbol} SIGNAL DETECTED] {Direction} | Strategy: {Strategy} | Conf: {Conf}% | Instrument: {Key} | Entry: ₹{Entry} SL: ₹{SL} Tgt: ₹{Tgt} R:R: {RR}",
+                    profile.Symbol,
+                    signal.Direction,
+                    signal.StrategyFamily,
+                    signal.Confidence,
+                    signal.SelectedInstrumentKey,
+                    signal.EntryPremium,
+                    signal.StopLossPremium,
+                    signal.Target1Premium,
+                    signal.RewardToRiskRatio);
+
+                // Validate Pre-Trade Risk Rules
+                var riskResult = await _riskService.ValidatePreTradeAsync(signal, ct);
+                if (!riskResult.IsApproved)
+                {
+                    _logger.LogWarning("[{Symbol} RISK VETO] Trade execution rejected by Risk Management Engine: {Reason}",
+                        profile.Symbol, string.Join("; ", riskResult.VetoReasons));
+                    continue;
+                }
+
+                // Execute simulated paper trade
+                var execResult = await _paperTradingEngine.ExecuteSignalAsync(signal, simulateSlippage: true, ct);
+                if (execResult.IsSuccess)
+                {
+                    _logger.LogInformation("[{Symbol} TRADE EXECUTED] Paper order filled for {Key} ({Qty} shares) @ ₹{Price:F2} | Order ID: {OrderId}",
+                        profile.Symbol,
+                        execResult.InstrumentKey,
+                        execResult.Quantity,
+                        execResult.ExecutedPrice,
+                        execResult.OrderId);
+                }
+                else
+                {
+                    _logger.LogWarning("[{Symbol} EXECUTION REJECTED] Paper order could not be filled: {Message}",
+                        profile.Symbol, execResult.Message);
+                }
             }
-            else
+            catch (Exception ex)
             {
-                _logger.LogWarning("[EXECUTION REJECTED] Paper order could not be filled: {Message}",
-                    execResult.Message);
+                _logger.LogError(ex, "Error in autonomous strategy evaluation loop for {Key}", profile.UnderlyingKey);
             }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error in autonomous strategy evaluation loop");
         }
     }
 
@@ -322,8 +325,9 @@ public class Worker : BackgroundService
             var mtfState = _indicatorService.CalculateMultiTimeframeState(
                 underlyingKey, candles1m, candles5m, candles15m, dailyCpr);
 
-            var snapshot = await _snapshotEngine.GetLatestSnapshotAsync(underlyingKey, ct)
-                           ?? await _snapshotEngine.CaptureAndPersistSnapshotAsync(underlyingKey, ct: ct);
+            var expiry = _subscriptionManager.GetCurrentExpiry(underlyingKey);
+            var snapshot = await _snapshotEngine.GetLatestSnapshotAsync(underlyingKey, expiry, ct)
+                           ?? await _snapshotEngine.CaptureAndPersistSnapshotAsync(underlyingKey, expiryDate: expiry, ct: ct);
 
             var optionsReport = snapshot != null
                 ? _optionsIntelligence.AnalyzeSnapshot(snapshot)

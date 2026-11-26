@@ -22,8 +22,9 @@ public class OptionsIntelligenceService : IOptionsIntelligenceService
     {
         if (snapshot == null) throw new ArgumentNullException(nameof(snapshot));
 
+        var profile = IndexRegistry.GetProfile(snapshot.UnderlyingKey);
         var spotPrice = snapshot.UnderlyingPrice;
-        var atmStrike = Math.Round(spotPrice / 50m, MidpointRounding.AwayFromZero) * 50m;
+        var atmStrike = Math.Round(spotPrice / profile.StrikeInterval, MidpointRounding.AwayFromZero) * profile.StrikeInterval;
 
         // Group quotes by strike price
         var quotesByStrike = snapshot.Quotes
@@ -109,8 +110,8 @@ public class OptionsIntelligenceService : IOptionsIntelligenceService
         var sentimentSummary = BuildSentimentSummary(sentimentScore, overallSentiment, pcrAnalysis, levels);
 
         // 4. Contract Selection (CE & PE Buying)
-        var recommendedCe = SelectBestContract(snapshot.Quotes, OptionType.CE, spotPrice);
-        var recommendedPe = SelectBestContract(snapshot.Quotes, OptionType.PE, spotPrice);
+        var recommendedCe = SelectBestContract(snapshot.Quotes, OptionType.CE, spotPrice, 40m, snapshot.UnderlyingKey);
+        var recommendedPe = SelectBestContract(snapshot.Quotes, OptionType.PE, spotPrice, 40m, snapshot.UnderlyingKey);
 
         return new OptionsIntelligenceReportDto
         {
@@ -256,7 +257,8 @@ public class OptionsIntelligenceService : IOptionsIntelligenceService
         IReadOnlyList<OptionQuote> quotes,
         OptionType optionType,
         decimal spotPrice,
-        decimal minLiquidityScore = 40m)
+        decimal minLiquidityScore = 40m,
+        string underlyingKey = "NSE_INDEX|Nifty 50")
     {
         var targetQuotes = quotes
             .Where(q => q.OptionType == optionType && q.Ltp > 10m && q.AskPrice > 0m)
@@ -264,25 +266,34 @@ public class OptionsIntelligenceService : IOptionsIntelligenceService
 
         if (targetQuotes.Count == 0) return null;
 
+        var sampleKey = targetQuotes.FirstOrDefault()?.InstrumentKey;
+        var profile = IndexRegistry.GetProfile(underlyingKey);
+        if (sampleKey != null && (sampleKey.Contains("BANK", StringComparison.OrdinalIgnoreCase) || sampleKey.Contains("SENSEX", StringComparison.OrdinalIgnoreCase)))
+        {
+            profile = IndexRegistry.GetProfile(sampleKey);
+        }
+
+        var maxOtmBuffer = profile.StrikeInterval * 0.3m;
+
         // Strictly prefer ATM and slight ITM contracts for Option Buying (eliminate OTM theta burn & zero intrinsic risk)
         var eligibleQuotes = targetQuotes.Where(q =>
         {
             if (optionType == OptionType.CE)
             {
-                // Buy CE: Candidate strike must be ITM or true ATM (strike <= spot + 15)
-                return q.StrikePrice <= (spotPrice + 15m);
+                // Buy CE: Candidate strike must be ITM or true ATM (strike <= spot + maxOtmBuffer)
+                return q.StrikePrice <= (spotPrice + maxOtmBuffer);
             }
             else
             {
-                // Buy PE: Candidate strike must be ITM or true ATM (strike >= spot - 15)
-                return q.StrikePrice >= (spotPrice - 15m);
+                // Buy PE: Candidate strike must be ITM or true ATM (strike >= spot - maxOtmBuffer)
+                return q.StrikePrice >= (spotPrice - maxOtmBuffer);
             }
         }).ToList();
 
         // Fallback to all target quotes only if no ITM/ATM quotes are present in quote list
         var quotesToEvaluate = eligibleQuotes.Count > 0 ? eligibleQuotes : targetQuotes;
 
-        var atmStrike = Math.Round(spotPrice / 50m, MidpointRounding.AwayFromZero) * 50m;
+        var atmStrike = Math.Round(spotPrice / profile.StrikeInterval, MidpointRounding.AwayFromZero) * profile.StrikeInterval;
         SelectedOptionContractDto? bestCandidate = null;
         decimal highestScore = -1m;
 
@@ -320,7 +331,7 @@ public class OptionsIntelligenceService : IOptionsIntelligenceService
                     score += 35m; 
                     reasons.Add("ATM (+35)"); 
                 }
-                else if (strikeDistance == 50m) 
+                else if (strikeDistance == profile.StrikeInterval) 
                 { 
                     bool isItm = (optionType == OptionType.CE && quote.StrikePrice < spotPrice) ||
                                  (optionType == OptionType.PE && quote.StrikePrice > spotPrice);
@@ -335,7 +346,7 @@ public class OptionsIntelligenceService : IOptionsIntelligenceService
                         reasons.Add("Near ATM (+20)");
                     }
                 }
-                else if (strikeDistance == 100m) 
+                else if (strikeDistance == profile.StrikeInterval * 2m) 
                 { 
                     score += 10m; 
                     reasons.Add("Deeper ITM/OTM (+10)"); 

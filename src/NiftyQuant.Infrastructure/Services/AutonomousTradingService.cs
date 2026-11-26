@@ -168,12 +168,13 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
             return;
         }
 
-        if (!string.IsNullOrWhiteSpace(_subscriptionManager.CurrentExpiry) &&
-            DateTime.TryParse(_subscriptionManager.CurrentExpiry, out var activeExp) &&
+        var activeExpStr = _subscriptionManager.GetCurrentExpiry(signal.UnderlyingKey);
+        if (!string.IsNullOrWhiteSpace(activeExpStr) &&
+            DateTime.TryParse(activeExpStr, out var activeExp) &&
             signal.SelectedExpiry.Date != activeExp.Date)
         {
-            _logger.LogWarning("[AUTO-TRADER EXPIRY VETO] Rejected order for {Symbol}: Expiry {Exp:dd-MMM-yyyy} does not match current active weekly expiry {ActiveExp:dd-MMM-yyyy}. Non-current expiries are strictly disabled.",
-                signal.SelectedInstrumentKey, signal.SelectedExpiry, activeExp);
+            _logger.LogWarning("[AUTO-TRADER EXPIRY VETO] Rejected order for {Symbol}: Expiry {Exp:dd-MMM-yyyy} does not match current active weekly expiry {ActiveExp:dd-MMM-yyyy} for {Underlying}. Non-current expiries are strictly disabled.",
+                signal.SelectedInstrumentKey, signal.SelectedExpiry, activeExp, signal.UnderlyingKey);
             return;
         }
 
@@ -348,18 +349,20 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
 
     private async Task TriggerAutonomousEvaluationAsync(CancellationToken ct)
     {
-        const string underlyingKey = "NSE_INDEX|Nifty 50";
-        try
+        foreach (var profile in IndexRegistry.SupportedIndices.Where(p => p.IsEnabled))
         {
-            var context = await BuildStrategyAnalysisContextAsync(underlyingKey, ct);
-            if (context != null)
+            try
             {
-                await _strategyEngine.EvaluateStrategiesAsync(context, ct);
+                var context = await BuildStrategyAnalysisContextAsync(profile.UnderlyingKey, ct);
+                if (context != null)
+                {
+                    await _strategyEngine.EvaluateStrategiesAsync(context, ct);
+                }
             }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Autonomous evaluation tick check failed");
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Autonomous evaluation tick check failed for {Key}", profile.UnderlyingKey);
+            }
         }
     }
 
@@ -374,7 +377,7 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
             return null;
         }
 
-        var currentExpiry = _subscriptionManager.CurrentExpiry;
+        var currentExpiry = _subscriptionManager.GetCurrentExpiry(underlyingKey);
         var snapshot = (!string.IsNullOrWhiteSpace(currentExpiry)
             ? await _snapshotEngine.GetLatestSnapshotAsync(underlyingKey, currentExpiry, ct)
             : null) ?? await _snapshotEngine.GetLatestSnapshotAsync(underlyingKey, ct);

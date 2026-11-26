@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using NiftyQuant.Application.Common.Interfaces;
 using NiftyQuant.Application.Common.Models.Upstox;
+using NiftyQuant.Domain.Entities;
 
 namespace NiftyQuant.Infrastructure.WebSockets;
 
@@ -9,7 +10,6 @@ public class SubscriptionManager : ISubscriptionManager
 {
     private const string NiftyIndexKey = "NSE_INDEX|Nifty 50";
     private const string IndiaVixKey = "NSE_INDEX|India VIX";
-    private const decimal StrikeStep = 50m;
     private const int StrikesAroundAtm = 5; // ATM +- 5 strikes
 
     private readonly IUpstoxClient _upstoxClient;
@@ -17,7 +17,7 @@ public class SubscriptionManager : ISubscriptionManager
     private readonly ILogger<SubscriptionManager> _logger;
 
     private readonly ConcurrentDictionary<string, byte> _trackedKeys = new(StringComparer.OrdinalIgnoreCase);
-    private IReadOnlyList<OptionContractDto> _contracts = new List<OptionContractDto>();
+    private readonly ConcurrentDictionary<string, IndexSubState> _indexStates = new(StringComparer.OrdinalIgnoreCase);
     private string _currentExpiry = string.Empty;
     private decimal _currentAtmStrike = 0m;
     private readonly SemaphoreSlim _lock = new(1, 1);
@@ -41,39 +41,75 @@ public class SubscriptionManager : ISubscriptionManager
         await _lock.WaitAsync(ct);
         try
         {
-            _logger.LogInformation("Initializing Subscription Manager for NIFTY 50 options...");
+            _logger.LogInformation("Initializing Subscription Manager for Multi-Index options (NIFTY 50, Bank Nifty, Sensex)...");
 
-            // Subscribe to Spot and VIX
-            _trackedKeys[NiftyIndexKey] = 1;
+            var spotKeysToSubscribe = new List<string> { IndiaVixKey };
             _trackedKeys[IndiaVixKey] = 1;
-            await _webSocketClient.SubscribeAsync(new[] { NiftyIndexKey, IndiaVixKey }, "full_d5", ct);
 
-            // Fetch active contracts
-            _contracts = await _upstoxClient.GetOptionContractsAsync(NiftyIndexKey, ct);
-            if (_contracts.Count == 0)
+            var todayUtc = DateTime.UtcNow.Date;
+
+            foreach (var profile in IndexRegistry.SupportedIndices.Where(p => p.IsEnabled))
             {
-                _logger.LogWarning("No option contracts returned for {Underlying}", NiftyIndexKey);
-                return;
+                spotKeysToSubscribe.Add(profile.UnderlyingKey);
+                _trackedKeys[profile.UnderlyingKey] = 1;
+
+                var state = new IndexSubState
+                {
+                    Profile = profile
+                };
+
+                try
+                {
+                    state.Contracts = await _upstoxClient.GetOptionContractsAsync(profile.UnderlyingKey, ct);
+                    if (state.Contracts.Count > 0)
+                    {
+                        state.CurrentExpiry = state.Contracts
+                            .Where(c => DateTime.TryParse(c.Expiry, out var dt) && dt.Date >= todayUtc)
+                            .Select(c => c.Expiry)
+                            .Distinct()
+                            .OrderBy(e => DateTime.Parse(e))
+                            .FirstOrDefault() ?? string.Empty;
+
+                        _logger.LogInformation("[{Symbol}] Selected nearest active weekly expiry: {Expiry} ({Count} contracts available)",
+                            profile.Symbol, state.CurrentExpiry, state.Contracts.Count);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("[{Symbol}] No option contracts returned for {Underlying}", profile.Symbol, profile.UnderlyingKey);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "[{Symbol}] Could not load option contracts for {Underlying}", profile.Symbol, profile.UnderlyingKey);
+                }
+
+                _indexStates[profile.UnderlyingKey] = state;
+
+                if (profile.UnderlyingKey == NiftyIndexKey && !string.IsNullOrEmpty(state.CurrentExpiry))
+                {
+                    _currentExpiry = state.CurrentExpiry;
+                }
             }
 
-            // Pick nearest active expiry (strictly current active weekly expiry >= today)
-            var todayUtc = DateTime.UtcNow.Date;
-            _currentExpiry = _contracts
-                .Where(c => DateTime.TryParse(c.Expiry, out var dt) && dt.Date >= todayUtc)
-                .Select(c => c.Expiry)
-                .Distinct()
-                .OrderBy(e => DateTime.Parse(e))
-                .FirstOrDefault() ?? string.Empty;
+            // Subscribe to all Spot and VIX feeds via WebSocket
+            await _webSocketClient.SubscribeAsync(spotKeysToSubscribe, "full_d5", ct);
 
-            _logger.LogInformation("Selected nearest option expiry: {Expiry}", _currentExpiry);
-
-            // Get initial spot price
-            var spotQuote = await _upstoxClient.GetMarketQuoteAsync(NiftyIndexKey, ct);
-            var spotPrice = spotQuote?.LastPrice ?? 0m;
-
-            if (spotPrice > 0m)
+            // Fetch initial spot price and initialize ATM strikes for each index
+            foreach (var profile in IndexRegistry.SupportedIndices.Where(p => p.IsEnabled))
             {
-                await UpdateAtmSubscriptionsInternalAsync(spotPrice, ct);
+                try
+                {
+                    var spotQuote = await _upstoxClient.GetMarketQuoteAsync(profile.UnderlyingKey, ct);
+                    var spotPrice = spotQuote?.LastPrice ?? 0m;
+                    if (spotPrice > 0m)
+                    {
+                        await UpdateAtmSubscriptionsInternalAsync(profile.UnderlyingKey, spotPrice, ct);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Initial spot quote fetch failed for {Key}", profile.UnderlyingKey);
+                }
             }
         }
         finally
@@ -82,19 +118,27 @@ public class SubscriptionManager : ISubscriptionManager
         }
     }
 
-    public async Task OnSpotPriceUpdateAsync(decimal spotPrice, CancellationToken ct = default)
+    public Task OnSpotPriceUpdateAsync(decimal spotPrice, CancellationToken ct = default)
     {
-        if (spotPrice <= 0m) return;
+        return OnSpotPriceUpdateAsync(NiftyIndexKey, spotPrice, ct);
+    }
 
-        var newAtm = CalculateAtmStrike(spotPrice);
-        if (newAtm == _currentAtmStrike) return;
+    public async Task OnSpotPriceUpdateAsync(string instrumentKey, decimal spotPrice, CancellationToken ct = default)
+    {
+        if (spotPrice <= 0m || string.IsNullOrWhiteSpace(instrumentKey)) return;
+
+        var profile = IndexRegistry.GetProfile(instrumentKey);
+        if (!_indexStates.TryGetValue(profile.UnderlyingKey, out var state)) return;
+
+        var newAtm = CalculateAtmStrike(spotPrice, profile.StrikeInterval);
+        if (newAtm == state.CurrentAtmStrike) return;
 
         await _lock.WaitAsync(ct);
         try
         {
-            if (newAtm != _currentAtmStrike)
+            if (newAtm != state.CurrentAtmStrike)
             {
-                await UpdateAtmSubscriptionsInternalAsync(spotPrice, ct);
+                await UpdateAtmSubscriptionsInternalAsync(profile.UnderlyingKey, spotPrice, ct);
             }
         }
         finally
@@ -103,21 +147,36 @@ public class SubscriptionManager : ISubscriptionManager
         }
     }
 
-    private async Task UpdateAtmSubscriptionsInternalAsync(decimal spotPrice, CancellationToken ct)
+    public string GetCurrentExpiry(string underlyingKey)
     {
-        var newAtm = CalculateAtmStrike(spotPrice);
-        _logger.LogInformation("NIFTY Spot: {Spot}. Updating ATM strike to: {Atm} for expiry {Expiry}", spotPrice, newAtm, _currentExpiry);
+        var profile = IndexRegistry.GetProfile(underlyingKey);
+        if (_indexStates.TryGetValue(profile.UnderlyingKey, out var state) && !string.IsNullOrWhiteSpace(state.CurrentExpiry))
+        {
+            return state.CurrentExpiry;
+        }
 
-        var minStrike = newAtm - (StrikesAroundAtm * StrikeStep);
-        var maxStrike = newAtm + (StrikesAroundAtm * StrikeStep);
+        return _currentExpiry;
+    }
 
-        var expiryContracts = _contracts
-            .Where(c => c.Expiry == _currentExpiry && c.StrikePrice >= minStrike && c.StrikePrice <= maxStrike)
+    private async Task UpdateAtmSubscriptionsInternalAsync(string underlyingKey, decimal spotPrice, CancellationToken ct)
+    {
+        var profile = IndexRegistry.GetProfile(underlyingKey);
+        if (!_indexStates.TryGetValue(profile.UnderlyingKey, out var state)) return;
+
+        var newAtm = CalculateAtmStrike(spotPrice, profile.StrikeInterval);
+        _logger.LogInformation("[{Symbol}] Spot: {Spot}. Updating ATM strike to: {Atm} for expiry {Expiry}",
+            profile.Symbol, spotPrice, newAtm, state.CurrentExpiry);
+
+        var minStrike = newAtm - (StrikesAroundAtm * profile.StrikeInterval);
+        var maxStrike = newAtm + (StrikesAroundAtm * profile.StrikeInterval);
+
+        var expiryContracts = state.Contracts
+            .Where(c => c.Expiry == state.CurrentExpiry && c.StrikePrice >= minStrike && c.StrikePrice <= maxStrike)
             .ToList();
 
         var desiredKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            NiftyIndexKey,
+            profile.UnderlyingKey,
             IndiaVixKey
         };
 
@@ -129,30 +188,31 @@ public class SubscriptionManager : ISubscriptionManager
         // Keys to add
         var toSubscribe = desiredKeys.Where(k => !_trackedKeys.ContainsKey(k)).ToList();
 
-        // Keys to drop (only option contracts, not spot or vix)
-        var toUnsubscribe = _trackedKeys.Keys
-            .Where(k => !desiredKeys.Contains(k) && k != NiftyIndexKey && k != IndiaVixKey)
-            .ToList();
-
         if (toSubscribe.Count > 0)
         {
-            _logger.LogInformation("Subscribing to {Count} new option strike contracts around ATM {Atm}", toSubscribe.Count, newAtm);
+            _logger.LogInformation("[{Symbol}] Subscribing to {Count} new option strike contracts around ATM {Atm}",
+                profile.Symbol, toSubscribe.Count, newAtm);
             foreach (var k in toSubscribe) _trackedKeys[k] = 1;
             await _webSocketClient.SubscribeAsync(toSubscribe, "full_d5", ct);
         }
 
-        if (toUnsubscribe.Count > 0)
+        state.CurrentAtmStrike = newAtm;
+        if (profile.UnderlyingKey == NiftyIndexKey)
         {
-            _logger.LogInformation("Unsubscribing from {Count} distant contracts for ATM {Atm}", toUnsubscribe.Count, newAtm);
-            foreach (var k in toUnsubscribe) _trackedKeys.TryRemove(k, out _);
-            await _webSocketClient.UnsubscribeAsync(toUnsubscribe, ct);
+            _currentAtmStrike = newAtm;
         }
-
-        _currentAtmStrike = newAtm;
     }
 
-    public static decimal CalculateAtmStrike(decimal spotPrice)
+    public static decimal CalculateAtmStrike(decimal spotPrice, decimal strikeStep = 50m)
     {
-        return Math.Round(spotPrice / StrikeStep, MidpointRounding.AwayFromZero) * StrikeStep;
+        return Math.Round(spotPrice / strikeStep, MidpointRounding.AwayFromZero) * strikeStep;
+    }
+
+    private class IndexSubState
+    {
+        public IndexProfile Profile { get; set; } = null!;
+        public string CurrentExpiry { get; set; } = string.Empty;
+        public decimal CurrentAtmStrike { get; set; } = 0m;
+        public IReadOnlyList<OptionContractDto> Contracts { get; set; } = new List<OptionContractDto>();
     }
 }
