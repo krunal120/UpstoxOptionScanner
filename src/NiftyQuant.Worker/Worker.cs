@@ -294,7 +294,7 @@ public class Worker : BackgroundService
 
     private static bool IsTradingHours(DateTime istTime)
     {
-        var startTime = new TimeSpan(9, 20, 0);
+        var startTime = new TimeSpan(9, 30, 0);
         var endTime = new TimeSpan(15, 10, 0);
         var dayOfWeek = istTime.DayOfWeek;
 

@@ -316,7 +316,7 @@ export const RiskTab: React.FC<RiskTabProps> = ({ riskStatus, account, onRefresh
               <CheckCircle2 size={15} /> Mandatory 15:15 IST Square-Off
             </div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px', lineHeight: 1.5 }}>
-              Zero overnight risk. All intraday positions are automatically liquidated at 15:15 IST. Entries vetoed before 09:20 and after 15:10 IST.
+              Zero overnight risk. All intraday positions are automatically liquidated at 15:15 IST. Entries vetoed before 09:30 and after 15:10 IST.
             </div>
           </div>
 

@@ -155,7 +155,7 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
 
         if (IsMarketHoursOnly && !IsTradingHours())
         {
-            _logger.LogInformation("[AUTO-TRADER] Outside market hours (09:20 - 15:10 IST). Skipping execution.");
+            _logger.LogInformation("[AUTO-TRADER] Outside market hours (09:30 - 15:10 IST). Skipping execution.");
             return;
         }
 
@@ -690,7 +690,7 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
     {
         var istNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, _istZone);
         if (istNow.DayOfWeek == DayOfWeek.Saturday || istNow.DayOfWeek == DayOfWeek.Sunday) return false;
-        var start = new TimeSpan(9, 20, 0);
+        var start = new TimeSpan(9, 30, 0);
         var end = new TimeSpan(15, 10, 0);
         return istNow.TimeOfDay >= start && istNow.TimeOfDay <= end;
     }

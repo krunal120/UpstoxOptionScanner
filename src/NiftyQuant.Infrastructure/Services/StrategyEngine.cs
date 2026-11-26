@@ -76,9 +76,9 @@ public class StrategyEngine : IStrategyEngine
         SignalDirection direction = bestEvaluation?.Direction ?? SignalDirection.Wait;
         StrategyFamily family = bestEvaluation?.StrategyFamily ?? StrategyFamily.None;
 
-        // Apply Time-of-Day Veto (IST market session: 09:15 to 15:30)
+        // Apply Time-of-Day Veto (IST market session: 09:30 to 15:10, waits for opening 15m candle to close)
         var istNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(context.EvaluationTimeUtc, DateTimeKind.Utc), IstZone);
-        var sessionStartTrading = new TimeSpan(9, 20, 0); // No trades in opening 5 minutes
+        var sessionStartTrading = new TimeSpan(9, 30, 0); // No trades in opening 15 minutes (avoids gap volatility trap)
         var sessionEndTrading = new TimeSpan(15, 10, 0);   // No new trades in final 20 minutes
 
         var reasons = new List<SignalReason>();
@@ -103,7 +103,7 @@ public class StrategyEngine : IStrategyEngine
                 {
                     Category = "RiskVeto",
                     ScoreContribution = 0m,
-                    Description = $"Time-of-day veto: Current IST time {istNow:HH:mm} is outside the active trading window (09:20 - 15:10)."
+                    Description = $"Time-of-day veto: Current IST time {istNow:HH:mm} is outside the active trading window (09:30 - 15:10)."
                 });
             }
         }

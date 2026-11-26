@@ -353,8 +353,8 @@ public class BacktestingEngine : IBacktestingEngine
                 // 2. SIGNAL EVALUATION & ENTRY TRIGGER
                 if (activeTrade == null && !isDailyHalted)
                 {
-                    // Check time-of-day constraints (09:20 to 15:10 IST)
-                    var sessionStart = new TimeSpan(9, 20, 0);
+                    // Check time-of-day constraints (09:30 to 15:10 IST)
+                    var sessionStart = new TimeSpan(9, 30, 0);
                     var sessionEnd = new TimeSpan(15, 10, 0);
 
                     if (timeOfDay >= sessionStart && timeOfDay <= sessionEnd &&

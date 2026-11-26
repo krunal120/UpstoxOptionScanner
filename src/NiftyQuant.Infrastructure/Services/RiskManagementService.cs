@@ -88,16 +88,16 @@ public class RiskManagementService : IRiskManagementService
             return result;
         }
 
-        // 3. Time-of-Day Veto (IST market session: 09:20 to 15:10, bypassed only for manual test-execute signals)
+        // 3. Time-of-Day Veto (IST market session: 09:30 to 15:10, bypassed only for manual test-execute signals)
         var signalTime = signal.SignalTimeUtc != default ? signal.SignalTimeUtc : DateTime.UtcNow;
         var istNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(signalTime, DateTimeKind.Utc), IstZone);
-        var sessionStart = new TimeSpan(9, 20, 0);
+        var sessionStart = new TimeSpan(9, 30, 0);
         var sessionEnd = new TimeSpan(15, 10, 0);
         bool isTestSignal = signal.Reasons.Any(r => string.Equals(r.Category, "Manual/Test", StringComparison.OrdinalIgnoreCase));
 
         if (!isTestSignal && (istNow.TimeOfDay < sessionStart || istNow.TimeOfDay > sessionEnd))
         {
-            result.VetoReasons.Add($"Time-of-day veto: Current IST time {istNow:HH:mm} is outside the active trading window (09:20 - 15:10).");
+            result.VetoReasons.Add($"Time-of-day veto: Current IST time {istNow:HH:mm} is outside the active trading window (09:30 - 15:10).");
             result.IsApproved = false;
             return result;
         }
