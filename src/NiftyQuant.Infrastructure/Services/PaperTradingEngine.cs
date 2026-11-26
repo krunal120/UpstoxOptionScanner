@@ -124,21 +124,16 @@ public class PaperTradingEngine : IPaperTradingEngine
             ExecutedTimeUtc = DateTime.UtcNow
         };
 
-        // 4. Create and Save PaperPosition
-        bool isSlValid = signal.StopLossPremium > 0m &&
-                         signal.StopLossPremium < executedPrice &&
-                         (executedPrice - signal.StopLossPremium) <= Math.Max(35m, executedPrice * 0.35m) &&
-                         signal.StopLossPremium >= (executedPrice * 0.50m);
-
-        decimal technicalRisk = isSlValid
+        // 4. Create and Save PaperPosition with Strict Intraday Risk Bounds
+        // For option buying, technical risk must NEVER exceed 15% of premium (or 25 pts max) to prevent oversized drawdowns
+        decimal technicalRisk = (signal.StopLossPremium > 0m && signal.StopLossPremium < executedPrice)
             ? (executedPrice - signal.StopLossPremium)
-            : Math.Clamp(executedPrice * 0.15m, 15m, 35m);
+            : Math.Clamp(executedPrice * 0.12m, 12m, 20m);
 
-        decimal boundedRisk = Math.Clamp(technicalRisk, Math.Max(10m, executedPrice * 0.10m), Math.Max(30m, executedPrice * 0.25m));
+        // Strict clamp: Min 8% / 8 pts, Max 15% / 25 pts (Max loss capped at ~₹1,200 - ₹1,600 per lot)
+        decimal boundedRisk = Math.Clamp(technicalRisk, Math.Max(8m, executedPrice * 0.08m), Math.Min(25m, Math.Max(15m, executedPrice * 0.15m)));
 
-        decimal initialStopLoss = isSlValid
-            ? signal.StopLossPremium
-            : Math.Round(executedPrice - boundedRisk, 2);
+        decimal initialStopLoss = Math.Round(executedPrice - boundedRisk, 2);
 
         decimal target1 = signal.Target1Premium > (executedPrice + 5m)
             ? signal.Target1Premium
@@ -406,8 +401,19 @@ public class PaperTradingEngine : IPaperTradingEngine
                     decimal proposedSL = pos.StopLossPrice;
                     decimal initialRisk = pos.AverageBuyPrice - pos.StopLossPrice;
 
-                    // Tier 1: Capital Preservation & Breakeven Lock (+15% return OR 1.5R reached)
-                    if (maxReturnPercent >= 15.0m || (initialRisk > 0m && maxGainPerShare >= (initialRisk * 1.5m)))
+                    // Tier 0: Early Risk Reduction (+7% return reached)
+                    // If trade is in profit (+7%), immediately trim risk to at most -5%
+                    if (maxReturnPercent >= 7.0m)
+                    {
+                        decimal tier0SL = Math.Round(pos.AverageBuyPrice * 0.95m, 2);
+                        if (tier0SL > proposedSL)
+                        {
+                            proposedSL = tier0SL;
+                        }
+                    }
+
+                    // Tier 1: Capital Preservation & Breakeven Lock (+12% return OR 1.2R reached)
+                    if (maxReturnPercent >= 12.0m || (initialRisk > 0m && maxGainPerShare >= (initialRisk * 1.2m)))
                     {
                         decimal beLevel = Math.Round(pos.AverageBuyPrice + Math.Max(1.0m, pos.AverageBuyPrice * 0.005m), 2);
                         if (beLevel > proposedSL)
@@ -416,8 +422,8 @@ public class PaperTradingEngine : IPaperTradingEngine
                         }
                     }
 
-                    // Tier 2: Lock 40% of Peak Gains (+25% return)
-                    if (maxReturnPercent >= 25.0m)
+                    // Tier 2: Lock 40% of Peak Gains (+20% return)
+                    if (maxReturnPercent >= 20.0m)
                     {
                         decimal tier2Level = Math.Round(pos.AverageBuyPrice + (maxGainPerShare * 0.40m), 2);
                         if (tier2Level > proposedSL)
@@ -426,8 +432,8 @@ public class PaperTradingEngine : IPaperTradingEngine
                         }
                     }
 
-                    // Tier 3: Lock 60% of Peak Gains (+35% return)
-                    if (maxReturnPercent >= 35.0m)
+                    // Tier 3: Lock 60% of Peak Gains (+30% return)
+                    if (maxReturnPercent >= 30.0m)
                     {
                         decimal tier3Level = Math.Round(pos.AverageBuyPrice + (maxGainPerShare * 0.60m), 2);
                         if (tier3Level > proposedSL)
@@ -446,8 +452,8 @@ public class PaperTradingEngine : IPaperTradingEngine
                         }
                     }
 
-                    // Tier 5: Chandelier High-Water Mark Trail (Max 20% giveback once return >= +20%)
-                    if (maxReturnPercent >= 20.0m)
+                    // Tier 5: Chandelier High-Water Mark Trail (Max 20% giveback once return >= +15%)
+                    if (maxReturnPercent >= 15.0m)
                     {
                         decimal chandelierFloor = Math.Round(pos.MaxLtpReached - (maxGainPerShare * 0.20m), 2);
                         if (chandelierFloor > proposedSL)

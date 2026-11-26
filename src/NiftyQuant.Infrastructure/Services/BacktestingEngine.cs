@@ -237,22 +237,29 @@ public class BacktestingEngine : IBacktestingEngine
                         decimal maxRetPct = activeTrade.EntryPrice > 0m ? (maxGain / activeTrade.EntryPrice) * 100m : 0m;
                         decimal proposedSL = activeTrade.StopLossPrice;
 
-                        // Tier 1: Breakeven (+0.5% or +₹1.0 buffer) at +15% return
-                        if (maxRetPct >= 15.0m)
+                        // Tier 0: Early Risk Reduction (+7% return)
+                        if (maxRetPct >= 7.0m)
+                        {
+                            decimal t0 = Math.Round(activeTrade.EntryPrice * 0.95m, 2);
+                            if (t0 > proposedSL) proposedSL = t0;
+                        }
+
+                        // Tier 1: Breakeven (+0.5% or +₹1.0 buffer) at +12% return
+                        if (maxRetPct >= 12.0m)
                         {
                             decimal be = Math.Round(activeTrade.EntryPrice + Math.Max(1.0m, activeTrade.EntryPrice * 0.005m), 2);
                             if (be > proposedSL) proposedSL = be;
                         }
 
-                        // Tier 2: Lock 40% of Peak Gains at +25% return
-                        if (maxRetPct >= 25.0m)
+                        // Tier 2: Lock 40% of Peak Gains at +20% return
+                        if (maxRetPct >= 20.0m)
                         {
                             decimal t2 = Math.Round(activeTrade.EntryPrice + (maxGain * 0.40m), 2);
                             if (t2 > proposedSL) proposedSL = t2;
                         }
 
-                        // Tier 3: Lock 60% of Peak Gains at +35% return
-                        if (maxRetPct >= 35.0m)
+                        // Tier 3: Lock 60% of Peak Gains at +30% return
+                        if (maxRetPct >= 30.0m)
                         {
                             decimal t3 = Math.Round(activeTrade.EntryPrice + (maxGain * 0.60m), 2);
                             if (t3 > proposedSL) proposedSL = t3;
@@ -265,8 +272,8 @@ public class BacktestingEngine : IBacktestingEngine
                             if (t4 > proposedSL) proposedSL = t4;
                         }
 
-                        // Tier 5: Chandelier Trail (Max 20% giveback once return >= +20%)
-                        if (maxRetPct >= 20.0m)
+                        // Tier 5: Chandelier Trail (Max 20% giveback once return >= +15%)
+                        if (maxRetPct >= 15.0m)
                         {
                             decimal chan = Math.Round(bestPremium - (maxGain * 0.20m), 2);
                             if (chan > proposedSL) proposedSL = chan;

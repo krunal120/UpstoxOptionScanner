@@ -542,7 +542,7 @@ public class PaperTradingEngineTests : IDisposable
             SelectedOptionType = OptionType.CE,
             SelectedExpiry = new DateTime(2026, 11, 23),
             EntryPremium = 60.0m,
-            StopLossPremium = 30.0m,
+            StopLossPremium = 48.0m,
             Target1Premium = 120.0m,
             RecommendedQuantity = 65,
             Confidence = 80m
@@ -557,8 +557,46 @@ public class PaperTradingEngineTests : IDisposable
         result.TradingSymbol.Should().Be("NIFTY 23 NOV 25500 CE");
         result.OptionType.Should().Be(OptionType.CE);
         result.StrikePrice.Should().Be(25500m);
-        result.StopLossPrice.Should().Be(30.0m);
+        result.StopLossPrice.Should().Be(48.0m);
         result.TargetPrice.Should().Be(120.0m);
         result.Quantity.Should().Be(65);
+    }
+
+    [Fact]
+    public async Task UpdatePositionPricesAsync_EarlyGain_TrimsRiskViaTier0()
+    {
+        // Arrange: Position opened at 200, initial SL at 175 (12.5% risk)
+        var posId = Guid.NewGuid();
+        var position = new PaperPosition
+        {
+            Id = posId,
+            InstrumentKey = "NSE_FO|NIFTY26DEC26000CE",
+            TradingSymbol = "NIFTY 01 DEC 26000 CE",
+            OptionType = OptionType.CE,
+            Quantity = 65,
+            AverageBuyPrice = 200.0m,
+            CurrentLtp = 200.0m,
+            StopLossPrice = 175.0m,
+            TargetPrice = 300.0m,
+            IsOpen = true
+        };
+
+        using (var scope = _serviceProvider.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NiftyQuantDbContext>();
+            db.PaperPositions.Add(position);
+            await db.SaveChangesAsync();
+        }
+
+        // Act: Price moves up to 216 (+8% gain, triggering Tier 0 early risk trim)
+        await _paperEngine.UpdatePositionPricesAsync("NSE_FO|NIFTY26DEC26000CE", 216.0m);
+
+        // Assert: Stop Loss immediately ratcheted up to -5% (190.0m), slashing remaining risk!
+        using (var scope = _serviceProvider.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NiftyQuantDbContext>();
+            var pos = await db.PaperPositions.FindAsync(posId);
+            pos!.StopLossPrice.Should().Be(190.0m);
+        }
     }
 }
