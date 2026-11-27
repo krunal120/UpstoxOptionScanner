@@ -401,19 +401,20 @@ public class PaperTradingEngine : IPaperTradingEngine
                     decimal proposedSL = pos.StopLossPrice;
                     decimal initialRisk = pos.AverageBuyPrice - pos.StopLossPrice;
 
-                    // Tier 0: Early Risk Reduction (+7% return reached)
-                    // If trade is in profit (+7%), immediately trim risk to at most -5%
-                    if (maxReturnPercent >= 7.0m)
+                    // Tier 0: Early Risk Reduction (+10% return reached)
+                    // If trade is in profit (+10%), trim remaining risk to at most -8% (avoids choking early pullbacks)
+                    if (maxReturnPercent >= 10.0m)
                     {
-                        decimal tier0SL = Math.Round(pos.AverageBuyPrice * 0.95m, 2);
+                        decimal tier0SL = Math.Round(pos.AverageBuyPrice * 0.92m, 2);
                         if (tier0SL > proposedSL)
                         {
                             proposedSL = tier0SL;
                         }
                     }
 
-                    // Tier 1: Capital Preservation & Breakeven Lock (+12% return OR 1.2R reached)
-                    if (maxReturnPercent >= 12.0m || (initialRisk > 0m && maxGainPerShare >= (initialRisk * 1.2m)))
+                    // Tier 1: Capital Preservation & Breakeven Lock (+15% return OR 1.5R reached with min 20 pts)
+                    // Gives trade sufficient room to absorb post-breakout pullback before locking breakeven
+                    if (maxReturnPercent >= 15.0m || (initialRisk > 0m && maxGainPerShare >= (initialRisk * 1.5m) && maxGainPerShare >= 20m))
                     {
                         decimal beLevel = Math.Round(pos.AverageBuyPrice + Math.Max(1.0m, pos.AverageBuyPrice * 0.005m), 2);
                         if (beLevel > proposedSL)

@@ -39,8 +39,8 @@ public static class IndexRegistry
         VwapPullbackPoints = 35m,
         VwapOverExtendedPoints = 55m,
         Ema21TolerancePoints = 20m,
-        MinSlUnderlyingPoints = 20m,
-        SlBaseDefaultPoints = 25m,
+        MinSlUnderlyingPoints = 40m,
+        SlBaseDefaultPoints = 45m,
         ExpiryDayOfWeek = DayOfWeek.Thursday,
         IsEnabled = true
     };
@@ -57,8 +57,8 @@ public static class IndexRegistry
         VwapPullbackPoints = 85m,
         VwapOverExtendedPoints = 140m,
         Ema21TolerancePoints = 50m,
-        MinSlUnderlyingPoints = 50m,
-        SlBaseDefaultPoints = 60m,
+        MinSlUnderlyingPoints = 80m,
+        SlBaseDefaultPoints = 90m,
         ExpiryDayOfWeek = DayOfWeek.Wednesday,
         IsEnabled = true
     };
@@ -75,8 +75,8 @@ public static class IndexRegistry
         VwapPullbackPoints = 140m,
         VwapOverExtendedPoints = 220m,
         Ema21TolerancePoints = 80m,
-        MinSlUnderlyingPoints = 80m,
-        SlBaseDefaultPoints = 100m,
+        MinSlUnderlyingPoints = 120m,
+        SlBaseDefaultPoints = 140m,
         ExpiryDayOfWeek = DayOfWeek.Friday,
         IsEnabled = true
     };

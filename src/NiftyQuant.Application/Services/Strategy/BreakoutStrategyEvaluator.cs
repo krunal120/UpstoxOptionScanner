@@ -103,7 +103,7 @@ public class BreakoutStrategyEvaluator : IStrategyEvaluator
                     result.Reasons = reasons;
 
                     decimal breakLevel = breaksCallWall ? levels.MajorCallResistance : (breaksPdh ? context.PreviousDayHigh : cpr!.CprTop);
-                    decimal riskDistance = Math.Max(20m, (spot - breakLevel) + 15m);
+                    decimal riskDistance = Math.Max(35m, (spot - breakLevel) + 20m);
                     result.StopLossUnderlyingDistance = Math.Round(riskDistance, 1);
                     result.Target1UnderlyingDistance = Math.Round(riskDistance * 2m, 1);
                     result.Target2UnderlyingDistance = Math.Round(riskDistance * 3m, 1);
@@ -172,7 +172,7 @@ public class BreakoutStrategyEvaluator : IStrategyEvaluator
                     result.Reasons = reasons;
 
                     decimal breakLevel = breaksPutFloor ? levels.MajorPutSupport : (breaksPdl ? context.PreviousDayLow : cpr!.CprBottom);
-                    decimal riskDistance = Math.Max(20m, (breakLevel - spot) + 15m);
+                    decimal riskDistance = Math.Max(35m, (breakLevel - spot) + 20m);
                     result.StopLossUnderlyingDistance = Math.Round(riskDistance, 1);
                     result.Target1UnderlyingDistance = Math.Round(riskDistance * 2m, 1);
                     result.Target2UnderlyingDistance = Math.Round(riskDistance * 3m, 1);

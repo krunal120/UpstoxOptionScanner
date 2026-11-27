@@ -156,13 +156,24 @@ public class StrategyEngine : IStrategyEngine
 
         if (selectedContract != null && entryPremium > 0m)
         {
-            decimal premiumRisk = Math.Round(stopLossDist * absDelta, 2);
+            // Intelligent 12% - 15% Stop Loss buffer for Option Buying
+            // Prevents market noise and normal candle wicks / retests from triggering premature stopouts.
+            decimal minRiskPremium = Math.Round(entryPremium * 0.12m, 2); // 12% floor (gives trade room to breathe)
+            decimal maxRiskPremium = Math.Round(entryPremium * 0.15m, 2); // 15% ceiling (caps maximum risk per trade)
+            decimal calculatedRisk = Math.Round(stopLossDist * absDelta, 2);
+
+            decimal premiumRisk = Math.Clamp(calculatedRisk, minRiskPremium, maxRiskPremium);
             slPremium = Math.Max(1.0m, Math.Round(entryPremium - premiumRisk, 2));
 
-            decimal premiumReward1 = Math.Round(target1Dist * absDelta, 2);
+            // Ensure Target 1 preserves at least 1:2 R:R based on actual premium risk
+            decimal minTarget1Gain = Math.Round(premiumRisk * 2.0m, 2);
+            decimal calculatedTarget1 = Math.Round(target1Dist * absDelta, 2);
+            decimal premiumReward1 = Math.Max(minTarget1Gain, calculatedTarget1);
             t1Premium = Math.Round(entryPremium + premiumReward1, 2);
 
-            decimal premiumReward2 = Math.Round(target2Dist * absDelta, 2);
+            decimal minTarget2Gain = Math.Round(premiumRisk * 3.0m, 2);
+            decimal calculatedTarget2 = Math.Round(target2Dist * absDelta, 2);
+            decimal premiumReward2 = Math.Max(minTarget2Gain, calculatedTarget2);
             t2Premium = Math.Round(entryPremium + premiumReward2, 2);
 
             decimal perLotRisk = (entryPremium - slPremium) * lotSize;

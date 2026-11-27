@@ -104,15 +104,15 @@ public class StrategyEngineTests
         signal.SelectedInstrumentKey.Should().Be("NSE_FO|NIFTY26NOV24100CE");
         signal.EntryPremium.Should().Be(120.0m);
 
-        // Expected Stop loss = 120 - (25 * 0.52) = 120 - 13.0 = 107.0
-        signal.StopLossPremium.Should().Be(107.0m);
-        // Expected Target 1 = 120 + (50 * 0.52) = 120 + 26.0 = 146.0
-        signal.Target1Premium.Should().Be(146.0m);
-        // Expected Target 2 = 120 + (75 * 0.52) = 120 + 39.0 = 159.0
-        signal.Target2Premium.Should().Be(159.0m);
+        // Expected Stop loss with 12% intelligent floor: 120 - max(13.0, 120 * 0.12) = 120 - 14.40 = 105.60
+        signal.StopLossPremium.Should().Be(105.60m);
+        // Expected Target 1 preserving 1:2 R:R based on 14.40 premium risk = 120 + 28.80 = 148.80
+        signal.Target1Premium.Should().Be(148.80m);
+        // Expected Target 2 = 120 + 43.20 = 163.20
+        signal.Target2Premium.Should().Be(163.20m);
 
-        // Risk Amount = (120 - 107) * 65 = 13 * 65 = 845
-        signal.RiskAmount.Should().Be(845.0m);
+        // Risk Amount = (120 - 105.60) * 65 = 14.40 * 65 = 936
+        signal.RiskAmount.Should().Be(936.0m);
         signal.RewardToRiskRatio.Should().Be(2.0m);
     }
 

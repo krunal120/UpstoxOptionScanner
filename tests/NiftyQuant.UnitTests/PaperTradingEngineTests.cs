@@ -588,15 +588,15 @@ public class PaperTradingEngineTests : IDisposable
             await db.SaveChangesAsync();
         }
 
-        // Act: Price moves up to 216 (+8% gain, triggering Tier 0 early risk trim)
-        await _paperEngine.UpdatePositionPricesAsync("NSE_FO|NIFTY26DEC26000CE", 216.0m);
+        // Act: Price moves up to 222 (+11% gain, triggering Tier 0 early risk trim at >= 10%)
+        await _paperEngine.UpdatePositionPricesAsync("NSE_FO|NIFTY26DEC26000CE", 222.0m);
 
-        // Assert: Stop Loss immediately ratcheted up to -5% (190.0m), slashing remaining risk!
+        // Assert: Stop Loss ratcheted up to -8% (184.0m), slashing risk while preserving breathing room
         using (var scope = _serviceProvider.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<NiftyQuantDbContext>();
             var pos = await db.PaperPositions.FindAsync(posId);
-            pos!.StopLossPrice.Should().Be(190.0m);
+            pos!.StopLossPrice.Should().Be(184.0m);
         }
     }
 }
