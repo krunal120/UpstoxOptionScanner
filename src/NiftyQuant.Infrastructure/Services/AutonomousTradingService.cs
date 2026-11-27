@@ -316,16 +316,6 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
         var openPositions = await _paperEngine.GetOpenPositionsAsync(ct);
         if (openPositions.Count == 0) return;
 
-        OptionChainSnapshot? snapshot = null;
-        try
-        {
-            snapshot = await _snapshotEngine.GetLatestSnapshotAsync("NSE_INDEX|Nifty 50", ct);
-        }
-        catch
-        {
-            // Snapshot lookup optional
-        }
-
         foreach (var pos in openPositions)
         {
             decimal ltp = 0m;
@@ -344,16 +334,33 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
                 // Fallback below
             }
 
-            // 2. Snapshot quote fallback by strike and option type
-            if (ltp <= 0m && snapshot?.Quotes != null && pos.StrikePrice > 0m)
+            // 2. Snapshot quote fallback by strike and option type (Index aware)
+            if (ltp <= 0m && pos.StrikePrice > 0m)
             {
-                var matched = snapshot.Quotes.FirstOrDefault(q =>
-                    q.StrikePrice == pos.StrikePrice &&
-                    q.OptionType == pos.OptionType);
-
-                if (matched != null && matched.Ltp > 0m)
+                try
                 {
-                    ltp = matched.Ltp;
+                    var underlyingKey = pos.TradingSymbol?.StartsWith("BANKNIFTY", StringComparison.OrdinalIgnoreCase) == true
+                        ? IndexRegistry.BankNiftyKey
+                        : pos.TradingSymbol?.StartsWith("SENSEX", StringComparison.OrdinalIgnoreCase) == true
+                            ? IndexRegistry.SensexKey
+                            : IndexRegistry.Nifty50Key;
+
+                    var snapshot = await _snapshotEngine.GetLatestSnapshotAsync(underlyingKey, ct);
+                    if (snapshot?.Quotes != null)
+                    {
+                        var matched = snapshot.Quotes.FirstOrDefault(q =>
+                            q.StrikePrice == pos.StrikePrice &&
+                            q.OptionType == pos.OptionType);
+
+                        if (matched != null && matched.Ltp > 0m)
+                        {
+                            ltp = matched.Ltp;
+                        }
+                    }
+                }
+                catch
+                {
+                    // Fallback below
                 }
             }
 
