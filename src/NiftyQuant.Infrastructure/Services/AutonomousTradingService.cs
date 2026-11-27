@@ -38,6 +38,7 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
     private int _totalOrdersPunchedToday = 0;
     private int _totalOrdersExitedToday = 0;
     private readonly SemaphoreSlim _orderExecutionLock = new(1, 1);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, DateTime> _reEntryCooldowns = new(StringComparer.OrdinalIgnoreCase);
 
     public bool IsEnabled { get; set; } = true;
     public string ExecutionMode { get; set; } = "Paper";
@@ -165,6 +166,27 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
         {
             _logger.LogWarning("[AUTO-TRADER EXPIRY VETO] Rejected order for {Symbol}: Expiry {Exp:dd-MMM-yyyy} is in the past.",
                 signal.SelectedInstrumentKey, signal.SelectedExpiry);
+            return;
+        }
+
+        // Re-Entry Cooldown Validation: Enforce 15-minute lockout after position close to eliminate churn/whipsaws
+        if (!string.IsNullOrWhiteSpace(signal.SelectedInstrumentKey) &&
+            _reEntryCooldowns.TryGetValue(signal.SelectedInstrumentKey, out var cooldownExpiry) &&
+            DateTime.UtcNow < cooldownExpiry)
+        {
+            var remaining = (cooldownExpiry - DateTime.UtcNow).TotalMinutes;
+            _logger.LogWarning("[AUTO-TRADER RE-ENTRY COOLDOWN VETO] Rejected {Direction} for {Symbol}: Cooldown active for another {Mins:F1} minutes following recent exit.",
+                signal.Direction, signal.SelectedInstrumentKey, remaining);
+            return;
+        }
+
+        var dirStrikeKey = $"{signal.SelectedOptionType}_{signal.SelectedStrike:F0}";
+        if (_reEntryCooldowns.TryGetValue(dirStrikeKey, out var dirCooldownExpiry) &&
+            DateTime.UtcNow < dirCooldownExpiry)
+        {
+            var remaining = (dirCooldownExpiry - DateTime.UtcNow).TotalMinutes;
+            _logger.LogWarning("[AUTO-TRADER RE-ENTRY COOLDOWN VETO] Rejected {Direction} for Strike {Strike}: Cooldown active for another {Mins:F1} minutes following recent exit.",
+                signal.Direction, signal.SelectedStrike, remaining);
             return;
         }
 
@@ -536,6 +558,19 @@ public class AutonomousTradingService : BackgroundService, IAutonomousTradingSer
     private async Task HandlePositionClosedAsync(PaperTrade trade)
     {
         _totalOrdersExitedToday++;
+
+        // Enforce 15-minute re-entry cooldown on the closed contract and strike
+        var cooldownUntil = DateTime.UtcNow.AddMinutes(15);
+        if (!string.IsNullOrWhiteSpace(trade.InstrumentKey))
+        {
+            _reEntryCooldowns[trade.InstrumentKey] = cooldownUntil;
+        }
+        var dirStrikeKey = $"{trade.OptionType}_{trade.StrikePrice:F0}";
+        _reEntryCooldowns[dirStrikeKey] = cooldownUntil;
+
+        _logger.LogInformation("[AUTO-TRADER COOLDOWN ENFORCED] 15-minute re-entry lockout applied for {Symbol} ({Direction} Strike {Strike:F0}) until {Time:HH:mm:ss} UTC.",
+            trade.TradingSymbol, trade.OptionType, trade.StrikePrice, cooldownUntil);
+
         _logger.LogInformation("[AUTO-TRADER POSITION CLOSED] {Symbol} ({Qty} shares) exited @ ₹{Exit:F2} (Entry: ₹{Entry:F2}) | Gross: ₹{Gross:F2} | Charges: ₹{Charges:F2} | Net PnL: ₹{Net:F2} ({Return:F1}%) | Exit Reason: {Reason} | Duration: {Mins} mins",
             trade.TradingSymbol, trade.Quantity, trade.ExitPrice, trade.EntryPrice, trade.GrossPnL, trade.TotalCharges, trade.NetPnL, trade.ReturnPercent, trade.ExitReason, trade.DurationMinutes);
 

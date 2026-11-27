@@ -31,6 +31,23 @@ public class MarketRegimeClassifier : IMarketRegimeClassifier
             };
         }
 
+        // 1b. CPR Equilibrium Trap: If price is oscillating inside Central Pivot Range (BC to TC), market is in equilibrium / sideways
+        var cpr = mtf?.DailyCpr;
+        if (cpr != null && cpr.CprBottom > 0m && cpr.CprTop > 0m && spot >= cpr.CprBottom && spot <= cpr.CprTop)
+        {
+            return new MarketRegimeResult
+            {
+                Regime = MarketRegimeType.Sideways,
+                Confidence = 80m,
+                Description = $"Sideways Regime (CPR Equilibrium Trap): Spot ₹{spot:F2} is oscillating inside the Central Pivot Range (₹{cpr.CprBottom:F0} - ₹{cpr.CprTop:F0}). Directional option buying blocked.",
+                AdxValue = adx15m,
+                IndiaVix = vix,
+                TrendAllowedBullish = false,
+                TrendAllowedBearish = false,
+                ReversalAllowed = false
+            };
+        }
+
         // 2. Strong Bullish Trend Regime
         // 15m ADX >= 22, 15m EMA 9 > 21, 5m & 15m Supertrend Bullish, Spot >= VWAP
         bool is15mBullish = snap15m != null && snap15m.Ema9 > snap15m.Ema21 && snap15m.SupertrendIsBullish == true;
@@ -75,8 +92,8 @@ public class MarketRegimeClassifier : IMarketRegimeClassifier
         }
 
         // 4. Sideways / Rangebound Regime
-        // Weak ADX (< 19) or EMAs converged / price oscillating tightly around VWAP
-        bool isAdxWeak = adx15m < 19m;
+        // Weak ADX (< 20) or EMAs converged / price oscillating tightly around VWAP
+        bool isAdxWeak = adx15m < 20m;
         bool isEmaFlat = snap15m != null && snap15m.Ema9.HasValue && snap15m.Ema21.HasValue &&
                          (Math.Abs(snap15m.Ema9.Value - snap15m.Ema21.Value) / spot) < 0.002m;
 

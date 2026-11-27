@@ -229,10 +229,18 @@ public class RiskManagementService : IRiskManagementService
         int tradesCountToday = closedTradesToday.Count;
 
         // 3. Consecutive losses today (from latest backwards)
+        // Breakeven exits (e.g. TrailingStopHit with GrossPnL near zero) represent capital protection, not structural losses
         int consecutiveLosses = 0;
         for (int i = closedTradesToday.Count - 1; i >= 0; i--)
         {
-            if (closedTradesToday[i].NetPnL < 0m)
+            var trade = closedTradesToday[i];
+            bool isBreakevenExit = trade.ExitReason == "TrailingStopHit" && trade.GrossPnL >= -50m;
+            if (isBreakevenExit)
+            {
+                continue;
+            }
+
+            if (trade.NetPnL < 0m)
             {
                 consecutiveLosses++;
             }

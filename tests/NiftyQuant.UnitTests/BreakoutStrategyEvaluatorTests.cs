@@ -126,4 +126,86 @@ public class BreakoutStrategyEvaluatorTests
         result.HasSignal.Should().BeFalse();
         result.Direction.Should().Be(SignalDirection.Wait);
     }
+
+    [Fact]
+    public void Evaluate_WhenSidewaysRegime_VetoesBreakouts()
+    {
+        // Arrange: Market in sideways regime must never fire breakout signals
+        var regime = new MarketRegimeResult
+        {
+            Regime = MarketRegimeType.Sideways,
+            TrendAllowedBullish = false,
+            TrendAllowedBearish = false
+        };
+
+        var context = new StrategyAnalysisContext
+        {
+            CurrentPrice = 24210m,
+            PreviousDayHigh = 24200m,
+            MultiTimeframeState = new MultiTimeframeIndicatorState
+            {
+                Timeframe5m = new IndicatorSnapshotDto { RelativeVolume = 1.5m }
+            }
+        };
+
+        // Act
+        var result = _evaluator.Evaluate(context, regime);
+
+        // Assert
+        result.HasSignal.Should().BeFalse();
+        result.Direction.Should().Be(SignalDirection.Wait);
+    }
+
+    [Fact]
+    public void Evaluate_WhenTransitionalRegime_VetoesBreakouts()
+    {
+        // Arrange: Market in transitional regime must not fire breakout signals
+        var regime = new MarketRegimeResult
+        {
+            Regime = MarketRegimeType.Transitional,
+            TrendAllowedBullish = false,
+            TrendAllowedBearish = false
+        };
+
+        var context = new StrategyAnalysisContext
+        {
+            CurrentPrice = 23790m,
+            PreviousDayLow = 23800m
+        };
+
+        // Act
+        var result = _evaluator.Evaluate(context, regime);
+
+        // Assert
+        result.HasSignal.Should().BeFalse();
+        result.Direction.Should().Be(SignalDirection.Wait);
+    }
+
+    [Fact]
+    public void Evaluate_WhenRelativeVolumeBelowMinimum_VetoesBreakouts()
+    {
+        // Arrange: Strong bullish regime but volume is retail drift (RVol < 1.1x)
+        var regime = new MarketRegimeResult
+        {
+            Regime = MarketRegimeType.StrongBullish,
+            TrendAllowedBullish = true
+        };
+
+        var context = new StrategyAnalysisContext
+        {
+            CurrentPrice = 24210m,
+            PreviousDayHigh = 24200m,
+            MultiTimeframeState = new MultiTimeframeIndicatorState
+            {
+                Timeframe5m = new IndicatorSnapshotDto { RelativeVolume = 0.9m }
+            }
+        };
+
+        // Act
+        var result = _evaluator.Evaluate(context, regime);
+
+        // Assert
+        result.HasSignal.Should().BeFalse();
+        result.Direction.Should().Be(SignalDirection.Wait);
+    }
 }
